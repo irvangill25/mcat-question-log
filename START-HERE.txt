@@ -1,0 +1,37 @@
+MCAT QUESTION LOG — SIMPLE ONLINE SETUP
+
+I already built the app, login screen, cloud database code, image upload code,
+security rules, backup import/export, and Vercel configuration.
+
+YOU ONLY DO THIS:
+
+1) SUPABASE
+- Create a Supabase project.
+- Open SQL Editor -> New query.
+- Open the included file "supabase-setup.sql", copy everything, paste it, and click Run.
+- In Authentication email settings, you may turn off email confirmation for the simplest personal setup.
+- Copy your Project URL and Publishable key from the Supabase API settings.
+
+2) GITHUB
+- Create a PRIVATE repository named mcat-question-log.
+- Click "uploading an existing file".
+- Upload every file and folder from this project folder.
+- Commit the files.
+
+3) VERCEL
+- Sign in with GitHub.
+- Click Add New -> Project and import mcat-question-log.
+- Add these two Environment Variables:
+  VITE_SUPABASE_URL = your Supabase Project URL
+  VITE_SUPABASE_PUBLISHABLE_KEY = your Supabase Publishable key
+- Click Deploy.
+
+4) USE IT
+- Open the Vercel web address.
+- Create your account and sign in.
+- In your old local app, click Export.
+- In the online app, click Import and choose that JSON backup.
+- In Chrome, use the menu -> Cast, save, and share -> Install page as app.
+
+DO NOT upload or paste a Supabase secret key/service-role key. The frontend uses
+only the Publishable key; the included Row Level Security rules protect your data.
