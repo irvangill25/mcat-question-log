@@ -106,7 +106,7 @@ function sanitizeAnnotationHtml(value = '') {
 export function applySelectionFormat(kind) {
   const selection = window.getSelection?.();
   if (!selection || selection.rangeCount === 0 || selection.isCollapsed) {
-    return { error: 'Select some text first.' };
+    return { error: kind === 'remove' ? 'Select highlighted or crossed-out text first.' : 'Select some text first.' };
   }
 
   const range = selection.getRangeAt(0);
@@ -123,10 +123,33 @@ export function applySelectionFormat(kind) {
   }
 
   try {
-    const wrapper = document.createElement(kind === 'highlight' ? 'mark' : 's');
-    const fragment = range.extractContents();
-    wrapper.appendChild(fragment);
-    range.insertNode(wrapper);
+    if (kind === 'remove') {
+      const formattedNodes = [...container.querySelectorAll('mark, s')]
+        .filter((node) => {
+          try {
+            return range.intersectsNode(node);
+          } catch {
+            return false;
+          }
+        });
+
+      if (formattedNodes.length === 0) {
+        return { error: 'The selected text does not contain a highlight or strikethrough.' };
+      }
+
+      formattedNodes.forEach((node) => {
+        const parent = node.parentNode;
+        if (!parent) return;
+        while (node.firstChild) parent.insertBefore(node.firstChild, node);
+        parent.removeChild(node);
+      });
+    } else {
+      const wrapper = document.createElement(kind === 'highlight' ? 'mark' : 's');
+      const fragment = range.extractContents();
+      wrapper.appendChild(fragment);
+      range.insertNode(wrapper);
+    }
+
     container.normalize();
     selection.removeAllRanges();
     return {
@@ -135,7 +158,7 @@ export function applySelectionFormat(kind) {
     };
   } catch (error) {
     console.error(error);
-    return { error: 'That selection could not be formatted. Try selecting a smaller section.' };
+    return { error: 'That selection could not be changed. Try selecting a smaller section.' };
   }
 }
 
@@ -647,6 +670,23 @@ export function TestRunner({ exam: incomingExam, questions, onSaveExam, onFinish
         },
       },
     }), true);
+    setToolbarMessage(kind === 'highlight' ? 'Highlight saved.' : kind === 'strike' ? 'Strikethrough saved.' : 'Formatting removed.');
+    window.setTimeout(() => setToolbarMessage(''), 1800);
+  }
+
+  function clearQuestionAnnotations() {
+    if (!Object.keys(attempt.annotations?.[questionId] || {}).length) {
+      setToolbarMessage('There are no annotations to clear.');
+      window.setTimeout(() => setToolbarMessage(''), 1800);
+      return;
+    }
+    updateAttempt((current) => ({
+      ...current,
+      annotations: { ...current.annotations, [questionId]: {} },
+    }), true);
+    window.getSelection?.()?.removeAllRanges();
+    setToolbarMessage('Annotations cleared for this question.');
+    window.setTimeout(() => setToolbarMessage(''), 2000);
   }
 
   function goToQuestion(nextIndex) {
@@ -715,8 +755,10 @@ export function TestRunner({ exam: incomingExam, questions, onSaveExam, onFinish
 
       <div className="exam-actionbar">
         <div className="exam-action-left">
-          <button type="button" onClick={() => applyFormat('highlight')}><span className="highlight-square"></span> Highlight</button>
-          <button type="button" onClick={() => applyFormat('strike')}>⌁ Strikethrough</button>
+          <button type="button" onClick={() => applyFormat('highlight')} title="Highlight selected text"><span className="highlight-square"></span> Highlight</button>
+          <button type="button" onClick={() => applyFormat('strike')} title="Cross out selected text">⌁ Strikethrough</button>
+          <button type="button" className="annotation-remove-button" onClick={() => applyFormat('remove')} title="Remove formatting from selected text">↶ Remove</button>
+          <button type="button" className="annotation-clear-button" onClick={clearQuestionAnnotations} title="Clear all annotations on this question">Clear all</button>
           {toolbarMessage && <span className="toolbar-message">{toolbarMessage}</span>}
         </div>
         <div className="exam-action-right">

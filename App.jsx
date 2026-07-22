@@ -621,104 +621,201 @@ function Dashboard({ questions, exams, onAdd, onOpenLog, onOpenExams, onCreateEx
     }),
     {},
   );
+  const reviewQueue = questions.filter(
+    (question) => question.flagged || question.reviewStatus === 'needs review' || question.result === 'incorrect',
+  );
   const reviewed = questions.filter((question) => question.reviewStatus !== 'needs review').length;
-  const flagged = questions.filter((question) => question.flagged).length;
+  const allAttempts = exams.flatMap((exam) => exam.attempts || []);
+  const completedAttempts = allAttempts.filter((attempt) => attempt.status === 'completed');
+  const inProgressExams = exams.filter((exam) => exam.activeAttempt?.status === 'in-progress').length;
+  const bestScore = completedAttempts.length
+    ? Math.max(...completedAttempts.map((attempt) => Number(attempt.score?.percent) || 0))
+    : null;
+  const correctRate = questions.length ? Math.round((totals.correct / questions.length) * 100) : 0;
+  const reviewProgress = questions.length ? Math.round((reviewed / questions.length) * 100) : 0;
   const recent = [...questions]
     .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
     .slice(0, 5);
+  const priorityReview = [...reviewQueue]
+    .sort((a, b) => Number(Boolean(b.flagged)) - Number(Boolean(a.flagged)) || new Date(b.updatedAt) - new Date(a.updatedAt))
+    .slice(0, 5);
+
+  const subjectStats = Object.values(
+    questions.reduce((groups, question) => {
+      const subject = question.subject?.trim() || 'Uncategorized';
+      if (!groups[subject]) groups[subject] = { subject, total: 0, correct: 0, review: 0 };
+      groups[subject].total += 1;
+      if (question.result === 'correct') groups[subject].correct += 1;
+      if (question.flagged || question.reviewStatus === 'needs review' || question.result === 'incorrect') {
+        groups[subject].review += 1;
+      }
+      return groups;
+    }, {}),
+  )
+    .map((item) => ({ ...item, percent: item.total ? Math.round((item.correct / item.total) * 100) : 0 }))
+    .sort((a, b) => b.total - a.total || a.subject.localeCompare(b.subject))
+    .slice(0, 6);
+
+  const displayDate = new Intl.DateTimeFormat(undefined, {
+    weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
+  }).format(new Date());
 
   return (
-    <section className="dashboard-page">
-      <div className="hero-card">
+    <section className="dashboard-page professional-dashboard">
+      <header className="dashboard-welcome">
         <div>
-          <p className="eyebrow">PERSONAL STUDY DATABASE</p>
-          <h1>Turn every missed or slow question into a reusable learning record.</h1>
-          <p>
-            Save screenshots, explanations, miss reasons, and Anki takeaways. Everything syncs to
-            your private account, while Export gives you an extra backup.
-          </p>
-          <div className="hero-actions">
-            <button className="primary-button" onClick={onAdd}>+ Add a question</button>
-            <button className="secondary-button" onClick={onOpenLog}>Open question log</button>
-            <button className="secondary-button" onClick={onOpenExams}>Full-Length Exams</button>
-          </div>
+          <p className="eyebrow">STUDY COMMAND CENTER</p>
+          <h1>MCAT Study Dashboard</h1>
+          <p>Manage your question bank, review priorities, and full-length practice from one workspace.</p>
         </div>
-        <div className="hero-visual" aria-hidden="true">
-          <div className="mini-window">
-            <span></span><span></span><span></span>
-            <div className="mini-grid">
-              <div className="mini-passage"></div>
-              <div className="mini-question">
-                <i></i><i></i><i></i><i></i>
-              </div>
+        <div className="dashboard-date-card">
+          <span>Today</span>
+          <strong>{displayDate}</strong>
+          <small>Cloud data is synced to your private account</small>
+        </div>
+      </header>
+
+      <div className="dashboard-quick-actions" aria-label="Quick actions">
+        <button className="quick-action primary-action" onClick={onAdd}>
+          <span className="quick-action-icon">＋</span>
+          <span><strong>Add Question</strong><small>Save a passage, question, answer, and explanation</small></span>
+          <b>→</b>
+        </button>
+        <button className="quick-action" onClick={onOpenLog}>
+          <span className="quick-action-icon">▤</span>
+          <span><strong>Question Bank</strong><small>Search, filter, edit, and review saved questions</small></span>
+          <b>→</b>
+        </button>
+        <button className="quick-action" onClick={exams.length ? onOpenExams : onCreateExam}>
+          <span className="quick-action-icon">◫</span>
+          <span><strong>{exams.length ? 'Full-Length Exams' : 'Create a Full-Length'}</strong><small>{exams.length ? 'Build, resume, and review exam attempts' : 'Create your first timed practice exam'}</small></span>
+          <b>→</b>
+        </button>
+      </div>
+
+      <div className="dashboard-kpi-grid">
+        <DashboardMetric label="Questions saved" value={questions.length} detail={`${reviewed} reviewed`} icon="▦" />
+        <DashboardMetric label="Correct records" value={`${correctRate}%`} detail={`${totals.correct || 0} marked correct`} icon="✓" tone="success" />
+        <DashboardMetric label="Review queue" value={reviewQueue.length} detail={`${questions.filter((question) => question.flagged).length} flagged`} icon="↻" tone="warning" />
+        <DashboardMetric label="Full-lengths" value={exams.length} detail={`${completedAttempts.length} completed attempt${completedAttempts.length === 1 ? '' : 's'}`} icon="◫" tone="info" />
+      </div>
+
+      <div className="dashboard-main-grid">
+        <section className="panel dashboard-performance-panel">
+          <div className="dashboard-panel-heading">
+            <div>
+              <p className="eyebrow">QUESTION BANK PERFORMANCE</p>
+              <h2>Performance by subject</h2>
             </div>
+            <button className="text-button" onClick={onOpenLog}>View question bank →</button>
           </div>
-        </div>
+
+          {subjectStats.length === 0 ? (
+            <div className="dashboard-inline-empty">Add questions to see subject-level performance.</div>
+          ) : (
+            <div className="subject-performance-list">
+              {subjectStats.map((item) => (
+                <div className="subject-performance-row" key={item.subject}>
+                  <div className="subject-performance-copy">
+                    <strong>{item.subject}</strong>
+                    <span>{item.total} question{item.total === 1 ? '' : 's'} • {item.review} to review</span>
+                  </div>
+                  <div className="subject-performance-track" aria-label={`${item.percent}% correct`}>
+                    <span style={{ width: `${item.percent}%` }}></span>
+                  </div>
+                  <strong className="subject-performance-percent">{item.percent}%</strong>
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="dashboard-progress-summary">
+            <span><strong>{reviewProgress}%</strong> review completion</span>
+            <div><i style={{ width: `${reviewProgress}%` }}></i></div>
+          </div>
+        </section>
+
+        <section className="panel dashboard-exam-command">
+          <div className="exam-command-header">
+            <div className="exam-command-mark">FL</div>
+            <div><p className="eyebrow">TEST CENTER</p><h2>Full-Length Exams</h2></div>
+          </div>
+          <div className="exam-command-metrics">
+            <div><span>Saved exams</span><strong>{exams.length}</strong></div>
+            <div><span>In progress</span><strong>{inProgressExams}</strong></div>
+            <div><span>Best score</span><strong>{bestScore === null ? '—' : `${bestScore}%`}</strong></div>
+          </div>
+          <div className="exam-command-list">
+            {exams.slice(0, 3).map((exam) => {
+              const attemptCount = (exam.attempts || []).length;
+              const assigned = (exam.sections || []).reduce((sum, section) => sum + (section.questionIds || []).length, 0);
+              return (
+                <button key={exam.id} onClick={onOpenExams}>
+                  <span><strong>{exam.title || 'Full-Length Exam'}</strong><small>{assigned} questions • {attemptCount} completed attempt{attemptCount === 1 ? '' : 's'}</small></span>
+                  <b>{exam.activeAttempt?.status === 'in-progress' ? 'Resume' : 'Open'} →</b>
+                </button>
+              );
+            })}
+            {exams.length === 0 && <div className="dashboard-inline-empty compact">No full-length exams created yet.</div>}
+          </div>
+          <button className="primary-button full-width-button" onClick={exams.length ? onOpenExams : onCreateExam}>
+            {exams.length ? 'Open Full-Length Center' : 'Create First Full-Length'}
+          </button>
+        </section>
       </div>
 
-      <div className="stat-grid">
-        <StatCard label="Total questions" value={questions.length} detail={`${reviewed} reviewed`} />
-        <StatCard label="Correct" value={totals.correct} detail="Confident answers" tone="success" />
-        <StatCard label="Incorrect" value={totals.incorrect} detail="Needs correction" tone="danger" />
-        <StatCard label="Guessed" value={totals.guessed} detail="Reasoning uncertain" tone="warning" />
-        <StatCard label="Slow" value={totals.slow} detail="Needs faster recall" tone="info" />
-        <StatCard label="Flagged" value={flagged} detail="Priority review" tone="flag" />
+      <div className="dashboard-lower-grid">
+        <section className="panel dashboard-list-panel">
+          <div className="dashboard-panel-heading">
+            <div><p className="eyebrow">PRIORITY WORK</p><h2>Review queue</h2></div>
+            <span className="dashboard-count-pill">{reviewQueue.length}</span>
+          </div>
+          {priorityReview.length === 0 ? (
+            <div className="dashboard-success-empty"><span>✓</span><strong>You are caught up</strong><small>No questions currently need review.</small></div>
+          ) : (
+            <div className="dashboard-record-list">
+              {priorityReview.map((question) => (
+                <button key={question.id} onClick={() => onReview(question)}>
+                  <span className={`dashboard-record-status ${question.flagged ? 'flagged' : question.result}`}></span>
+                  <span className="dashboard-record-number">Q{question.questionNumber || '—'}</span>
+                  <span className="dashboard-record-copy"><strong>{question.topic || 'Untitled topic'}</strong><small>{question.subject || 'No subject'} • {question.flagged ? 'Flagged' : question.reviewStatus}</small></span>
+                  <span className="dashboard-record-arrow">›</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </section>
+
+        <section className="panel dashboard-list-panel">
+          <div className="dashboard-panel-heading">
+            <div><p className="eyebrow">RECENT ACTIVITY</p><h2>Continue where you left off</h2></div>
+            <button className="text-button" onClick={onOpenLog}>View all →</button>
+          </div>
+          {recent.length === 0 ? (
+            <div className="dashboard-inline-empty">Your recently edited questions will appear here.</div>
+          ) : (
+            <div className="dashboard-record-list">
+              {recent.map((question) => (
+                <button key={question.id} onClick={() => onReview(question)}>
+                  <span className={`dashboard-record-status ${question.result}`}></span>
+                  <span className="dashboard-record-number">Q{question.questionNumber || '—'}</span>
+                  <span className="dashboard-record-copy"><strong>{question.topic || 'Untitled topic'}</strong><small>{question.subject || 'No subject'} • {question.dateCompleted || 'No date'}</small></span>
+                  <ResultBadge result={question.result} />
+                  <span className="dashboard-record-arrow">›</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </section>
       </div>
-
-      <section className="dashboard-exam-banner">
-        <div className="dashboard-exam-icon">▤</div>
-        <div>
-          <p className="eyebrow">FULL-LENGTH TEST CENTER</p>
-          <h2>Build and take complete practice exams</h2>
-          <p>Group your saved questions into sections, use a live timer, highlight passages, cross out choices, flag questions, and receive a score report.</p>
-        </div>
-        <div className="dashboard-exam-actions">
-          <strong>{exams.length}</strong><span>Saved exams</span>
-          <button className="primary-button" onClick={exams.length ? onOpenExams : onCreateExam}>{exams.length ? 'Open exams' : 'Create first exam'}</button>
-        </div>
-      </section>
-
-      <section className="panel recent-panel">
-        <div className="panel-heading">
-          <div>
-            <p className="eyebrow">RECENT ACTIVITY</p>
-            <h2>Continue reviewing</h2>
-          </div>
-          <button className="text-button" onClick={onOpenLog}>View all →</button>
-        </div>
-
-        {recent.length === 0 ? (
-          <EmptyState onAdd={onAdd} />
-        ) : (
-          <div className="recent-list">
-            {recent.map((question) => (
-              <button key={question.id} className="recent-item" onClick={() => onReview(question)}>
-                <span className={`status-dot ${question.result}`}></span>
-                <span className="recent-number">Q{question.questionNumber || '—'}</span>
-                <span className="recent-copy">
-                  <strong>{question.topic || 'Untitled topic'}</strong>
-                  <small>{question.subject || 'No subject'} • {question.dateCompleted || 'No date'}</small>
-                </span>
-                <ResultBadge result={question.result} />
-                <span className="chevron">›</span>
-              </button>
-            ))}
-          </div>
-        )}
-      </section>
     </section>
   );
 }
 
-function StatCard({ label, value, detail, tone = '' }) {
+function DashboardMetric({ label, value, detail, icon, tone = '' }) {
   return (
-    <article className={`stat-card ${tone}`}>
-      <div className="stat-topline">
-        <span>{label}</span>
-        <span className="stat-icon">{tone === 'flag' ? '⚑' : '•'}</span>
-      </div>
-      <strong>{value}</strong>
-      <small>{detail}</small>
+    <article className={`dashboard-metric ${tone}`}>
+      <div className="dashboard-metric-icon">{icon}</div>
+      <div><span>{label}</span><strong>{value}</strong><small>{detail}</small></div>
     </article>
   );
 }
@@ -1519,8 +1616,25 @@ function ReviewPage({
         [annotationKey]: result.html,
       },
     }, { silent: true });
-    setAnnotationNotice(kind === 'highlight' ? 'Highlight saved.' : 'Strikethrough saved.');
+    const message = kind === 'highlight'
+      ? 'Highlight saved.'
+      : kind === 'strike'
+        ? 'Strikethrough saved.'
+        : 'Formatting removed.';
+    setAnnotationNotice(message);
     window.setTimeout(() => setAnnotationNotice(''), 1800);
+  }
+
+  async function clearReviewAnnotations() {
+    if (!Object.keys(activeQuestion.reviewAnnotations || {}).length) {
+      setAnnotationNotice('There are no annotations to clear.');
+      window.setTimeout(() => setAnnotationNotice(''), 1800);
+      return;
+    }
+    await onUpdateQuestion({ ...activeQuestion, reviewAnnotations: {} }, { silent: true });
+    window.getSelection?.()?.removeAllRanges();
+    setAnnotationNotice('All highlights and strikethroughs cleared for this question.');
+    window.setTimeout(() => setAnnotationNotice(''), 2200);
   }
 
   return (
@@ -1542,8 +1656,10 @@ function ReviewPage({
 
       <div className="exam-actionbar">
         <div className="exam-action-left">
-          <button type="button" onClick={() => applyReviewFormat('highlight')}><span className="highlight-square"></span> Highlight</button>
-          <button type="button" onClick={() => applyReviewFormat('strike')}>⌁ Strikethrough</button>
+          <button type="button" onClick={() => applyReviewFormat('highlight')} title="Highlight selected text"><span className="highlight-square"></span> Highlight</button>
+          <button type="button" onClick={() => applyReviewFormat('strike')} title="Cross out selected text">⌁ Strikethrough</button>
+          <button type="button" className="annotation-remove-button" onClick={() => applyReviewFormat('remove')} title="Remove highlight or strikethrough from selected text">↶ Remove</button>
+          <button type="button" className="annotation-clear-button" onClick={clearReviewAnnotations} title="Clear all highlights and strikethroughs on this question">Clear all</button>
           {annotationNotice && <span className="toolbar-message">{annotationNotice}</span>}
         </div>
         <div className="exam-action-right">

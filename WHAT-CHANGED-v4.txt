@@ -1,0 +1,8 @@
+MCAT Question Log v4
+
+- Added Remove formatting for selected highlighted or strikethrough text.
+- Added Clear all annotations for the current question.
+- Answer-choice cross-outs remain toggleable by pressing S again.
+- Rebuilt the dashboard as a professional study command center.
+- Added subject performance, review queue, full-length metrics, and recent activity.
+- The live testing workspace, timers, autosave, navigator, flags, and scoring remain intact.
