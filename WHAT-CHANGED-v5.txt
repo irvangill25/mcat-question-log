@@ -1,0 +1,20 @@
+MCAT Question Log v5 — Minimal Workspace Dashboard
+
+Dashboard and app shell
+- New premium left navigation sidebar and slim top utility bar
+- Minimal dashboard with only three core metrics
+- Large Continue Studying area with direct review actions
+- Today's Focus with three actionable next steps
+- Compact Review Queue, Full-Length Exams, and Recent Activity panels
+- Responsive layout for smaller screens
+- Cloud sync status and backup controls moved into the sidebar
+
+Preserved
+- Existing Supabase data and authentication
+- Question bank, add/edit forms, passages, and uploaded images
+- Full-length exam builder, timer, autosave, navigator, scoring, and attempts
+- Testing/review interface styling and behavior
+- Highlight, strikethrough, remove-formatting, clear annotations, and answer-choice strikeout
+- Import/export backup compatibility
+
+No Supabase SQL changes or environment-variable changes are required.

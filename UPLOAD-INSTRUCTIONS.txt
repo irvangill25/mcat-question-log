@@ -1,17 +1,14 @@
-MCAT Question Log v4 — GitHub Update
+MCAT QUESTION LOG v5 UPDATE
 
-1. Unzip this file.
-2. Open your existing GitHub repository: mcat-question-log.
-3. Click Add file → Upload files.
-4. Drag every file and the public folder from this unzipped folder into GitHub.
-5. Allow GitHub to replace the existing files, then click Commit changes.
-6. Vercel will deploy the update automatically.
-7. When deployment is complete, open the app and press Command + Shift + R once.
+1. Unzip this folder.
+2. Open your existing GitHub repository for the MCAT Question Log.
+3. Choose Add file -> Upload files.
+4. Drag every item INSIDE this folder into GitHub, including the public folder.
+5. Confirm replacement of existing files and commit the changes.
+6. Wait for Vercel to deploy automatically.
+7. Open the site and press Command + Shift + R once.
 
-No Supabase changes are required. Your existing questions, images, exams, and attempts remain stored in your account.
-
-Annotation controls:
-- Select text, then click Highlight or Strikethrough.
-- Select formatted text, then click Remove.
-- Click Clear all to erase all text annotations on the current question.
-- On answer choices, click the S button again to restore a crossed-out choice.
+Do not upload the ZIP itself.
+Do not rerun the Supabase SQL file.
+Do not change the Vercel environment variables.
+Your existing cloud questions, images, exams, and attempts remain intact.

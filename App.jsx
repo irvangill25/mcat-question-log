@@ -153,6 +153,24 @@ function Icon({ children }) {
   return <span className="icon" aria-hidden="true">{children}</span>;
 }
 
+function SidebarIcon({ name }) {
+  const common = { width: 20, height: 20, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true };
+  const paths = {
+    dashboard: <><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></>,
+    bank: <><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H11v16H6.5A2.5 2.5 0 0 0 4 21.5z"/><path d="M20 5.5A2.5 2.5 0 0 0 17.5 3H13v16h4.5a2.5 2.5 0 0 1 2.5 2.5z"/></>,
+    exam: <><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 3.5h6V6H9zM9 11h6M9 15h6"/></>,
+    add: <><path d="M12 5v14M5 12h14"/><circle cx="12" cy="12" r="9"/></>,
+    review: <><path d="M6 3h12v18l-6-4-6 4z"/></>,
+    export: <><path d="M12 3v12M7 8l5-5 5 5"/><path d="M5 14v6h14v-6"/></>,
+    import: <><path d="M12 15V3M7 10l5 5 5-5"/><path d="M5 14v6h14v-6"/></>,
+    logout: <><path d="M10 4H5v16h5M14 8l4 4-4 4M8 12h10"/></>,
+    search: <><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></>,
+    calendar: <><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></>,
+    user: <><circle cx="12" cy="8" r="4"/><path d="M4.5 21a7.5 7.5 0 0 1 15 0"/></>,
+  };
+  return <svg {...common}>{paths[name] || paths.dashboard}</svg>;
+}
+
 function App() {
   const { user, signOut } = useAuth();
   const [page, setPage] = useState(PAGE.DASHBOARD);
@@ -460,60 +478,55 @@ function App() {
 
   return (
     <div className="app-shell">
-      {page !== PAGE.REVIEW && page !== PAGE.TEST && <header className="top-header">
-        <button className="brand" onClick={() => navigate(PAGE.DASHBOARD)}>
-          <span className="brand-mark">M</span>
-          <span>
-            <strong>MCAT Question Log</strong>
-            <small>Private • Cloud-synced • {user?.email || 'Signed in'}</small>
-          </span>
-        </button>
+      {page !== PAGE.REVIEW && page !== PAGE.TEST && <>
+        <aside className="workspace-sidebar">
+          <button className="workspace-brand" onClick={() => navigate(PAGE.DASHBOARD)}>
+            <span className="workspace-brand-mark"><i></i><i></i></span>
+            <span><strong>MCAT</strong><small>Question Log</small></span>
+          </button>
 
-        <nav className="main-nav" aria-label="Main navigation">
-          <NavButton active={page === PAGE.DASHBOARD} onClick={() => navigate(PAGE.DASHBOARD)}>
-            Dashboard
-          </NavButton>
-          <NavButton active={page === PAGE.LOG} onClick={() => navigate(PAGE.LOG)}>
-            Question Log
-          </NavButton>
-          <NavButton active={page === PAGE.EXAMS || page === PAGE.EXAM_BUILDER || page === PAGE.RESULTS} onClick={() => navigate(PAGE.EXAMS)}>
-            Full-Length Exams
-          </NavButton>
-          <NavButton active={page === PAGE.ADD} onClick={startAdd}>
-            Add Question
-          </NavButton>
-          <NavButton
-            active={page === PAGE.REVIEW}
-            disabled={!activeQuestion}
-            onClick={() => navigate(PAGE.REVIEW)}
-          >
-            Review
-          </NavButton>
-        </nav>
+          <nav className="workspace-nav" aria-label="Main navigation">
+            <NavButton icon="dashboard" active={page === PAGE.DASHBOARD} onClick={() => navigate(PAGE.DASHBOARD)}>Dashboard</NavButton>
+            <NavButton icon="bank" active={page === PAGE.LOG} onClick={() => navigate(PAGE.LOG)}>Question Bank</NavButton>
+            <NavButton icon="exam" active={page === PAGE.EXAMS || page === PAGE.EXAM_BUILDER || page === PAGE.RESULTS} onClick={() => navigate(PAGE.EXAMS)}>Full-Length Exams</NavButton>
+            <NavButton icon="add" active={page === PAGE.ADD} onClick={startAdd}>Add Question</NavButton>
+            <NavButton icon="review" disabled={!activeQuestion} onClick={() => activeQuestion && openReview(activeQuestion)}>
+              Review Question
+              {questions.filter((question) => question.flagged || question.reviewStatus === 'needs review' || question.result === 'incorrect').length > 0 && (
+                <span className="workspace-nav-badge">{questions.filter((question) => question.flagged || question.reviewStatus === 'needs review' || question.result === 'incorrect').length}</span>
+              )}
+            </NavButton>
+          </nav>
 
-        <div className="header-actions">
-          <button className="header-button" onClick={exportBackup}>
-            <Icon>⇩</Icon> Export
+          <div className="workspace-sidebar-spacer"></div>
+          <div className="workspace-sync-card">
+            <span className="workspace-sync-dot"></span>
+            <div><strong>Cloud synced</strong><small>{questions.length} question{questions.length === 1 ? '' : 's'} protected</small></div>
+          </div>
+          <div className="workspace-sidebar-actions">
+            <button onClick={exportBackup}><SidebarIcon name="export"/><span>Export backup</span></button>
+            <button onClick={() => importInputRef.current?.click()}><SidebarIcon name="import"/><span>Import backup</span></button>
+            <input ref={importInputRef} type="file" accept="application/json,.json" onChange={importBackup} hidden />
+            <button onClick={signOut}><SidebarIcon name="logout"/><span>Sign out</span></button>
+          </div>
+        </aside>
+
+        <header className="workspace-topbar">
+          <button className="workspace-search" onClick={() => navigate(PAGE.LOG)}>
+            <SidebarIcon name="search"/>
+            <span>Search questions, subjects, topics…</span>
+            <kbd>⌘ K</kbd>
           </button>
-          <button className="header-button" onClick={() => importInputRef.current?.click()}>
-            <Icon>⇧</Icon> Import
-          </button>
-          <input
-            ref={importInputRef}
-            type="file"
-            accept="application/json,.json"
-            onChange={importBackup}
-            hidden
-          />
-          <button className="header-button" onClick={signOut} title="Sign out">
-            <Icon>↪</Icon> Sign Out
-          </button>
-        </div>
-      </header>}
+          <div className="workspace-topbar-right">
+            <div className="workspace-date"><SidebarIcon name="calendar"/><span>{new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', year: 'numeric' }).format(new Date())}</span></div>
+            <div className="workspace-user"><span className="workspace-avatar">{(user?.email || 'U').slice(0, 1).toUpperCase()}</span><span><strong>{user?.email?.split('@')[0] || 'Student'}</strong><small>Private workspace</small></span></div>
+          </div>
+        </header>
+      </>}
 
       {notice && <div className="notice" role="status">{notice}</div>}
 
-      <main className={page === PAGE.REVIEW || page === PAGE.TEST ? 'review-main' : 'page-main'}>
+      <main className={page === PAGE.REVIEW || page === PAGE.TEST ? 'review-main' : 'page-main workspace-page-main'}>
         {page === PAGE.DASHBOARD && (
           <Dashboard
             questions={questions}
@@ -605,205 +618,173 @@ function App() {
   );
 }
 
-function NavButton({ active, disabled, children, onClick }) {
+function NavButton({ active, disabled, children, onClick, icon = 'dashboard' }) {
   return (
     <button className={`nav-button ${active ? 'active' : ''}`} disabled={disabled} onClick={onClick}>
-      {children}
+      <SidebarIcon name={icon}/>
+      <span className="nav-button-label">{children}</span>
     </button>
   );
 }
 
 function Dashboard({ questions, exams, onAdd, onOpenLog, onOpenExams, onCreateExam, onReview }) {
-  const totals = RESULT_OPTIONS.reduce(
-    (accumulator, result) => ({
-      ...accumulator,
-      [result]: questions.filter((question) => question.result === result).length,
-    }),
-    {},
-  );
   const reviewQueue = questions.filter(
     (question) => question.flagged || question.reviewStatus === 'needs review' || question.result === 'incorrect',
   );
-  const reviewed = questions.filter((question) => question.reviewStatus !== 'needs review').length;
   const allAttempts = exams.flatMap((exam) => exam.attempts || []);
   const completedAttempts = allAttempts.filter((attempt) => attempt.status === 'completed');
-  const inProgressExams = exams.filter((exam) => exam.activeAttempt?.status === 'in-progress').length;
-  const bestScore = completedAttempts.length
-    ? Math.max(...completedAttempts.map((attempt) => Number(attempt.score?.percent) || 0))
-    : null;
-  const correctRate = questions.length ? Math.round((totals.correct / questions.length) * 100) : 0;
-  const reviewProgress = questions.length ? Math.round((reviewed / questions.length) * 100) : 0;
-  const recent = [...questions]
-    .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
-    .slice(0, 5);
+  const activeExams = exams.filter((exam) => exam.activeAttempt?.status === 'in-progress');
   const priorityReview = [...reviewQueue]
     .sort((a, b) => Number(Boolean(b.flagged)) - Number(Boolean(a.flagged)) || new Date(b.updatedAt) - new Date(a.updatedAt))
-    .slice(0, 5);
+    .slice(0, 3);
+  const recent = [...questions]
+    .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
+    .slice(0, 4);
+  const nextQuestion = priorityReview[0] || questions[0] || null;
+  const nextExam = activeExams[0] || exams[0] || null;
 
-  const subjectStats = Object.values(
-    questions.reduce((groups, question) => {
-      const subject = question.subject?.trim() || 'Uncategorized';
-      if (!groups[subject]) groups[subject] = { subject, total: 0, correct: 0, review: 0 };
-      groups[subject].total += 1;
-      if (question.result === 'correct') groups[subject].correct += 1;
-      if (question.flagged || question.reviewStatus === 'needs review' || question.result === 'incorrect') {
-        groups[subject].review += 1;
-      }
-      return groups;
-    }, {}),
-  )
-    .map((item) => ({ ...item, percent: item.total ? Math.round((item.correct / item.total) * 100) : 0 }))
-    .sort((a, b) => b.total - a.total || a.subject.localeCompare(b.subject))
-    .slice(0, 6);
-
-  const displayDate = new Intl.DateTimeFormat(undefined, {
-    weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
-  }).format(new Date());
+  const formatActivityDate = (value) => {
+    if (!value) return 'Recently';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return 'Recently';
+    return new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(date);
+  };
 
   return (
-    <section className="dashboard-page professional-dashboard">
-      <header className="dashboard-welcome">
+    <section className="minimal-dashboard">
+      <header className="minimal-dashboard-header">
         <div>
-          <p className="eyebrow">STUDY COMMAND CENTER</p>
-          <h1>MCAT Study Dashboard</h1>
-          <p>Manage your question bank, review priorities, and full-length practice from one workspace.</p>
+          <h1>Dashboard</h1>
+          <p>Your focused workspace for questions, review, and full-length practice.</p>
         </div>
-        <div className="dashboard-date-card">
-          <span>Today</span>
-          <strong>{displayDate}</strong>
-          <small>Cloud data is synced to your private account</small>
+        <div className="minimal-dashboard-actions">
+          <button className="primary-button" onClick={() => nextQuestion ? onReview(nextQuestion) : onAdd()}>
+            <span aria-hidden="true">▷</span> Start review
+          </button>
+          <button className="secondary-button" onClick={exams.length ? onOpenExams : onCreateExam}>
+            + New full-length
+          </button>
         </div>
       </header>
 
-      <div className="dashboard-quick-actions" aria-label="Quick actions">
-        <button className="quick-action primary-action" onClick={onAdd}>
-          <span className="quick-action-icon">＋</span>
-          <span><strong>Add Question</strong><small>Save a passage, question, answer, and explanation</small></span>
-          <b>→</b>
-        </button>
-        <button className="quick-action" onClick={onOpenLog}>
-          <span className="quick-action-icon">▤</span>
-          <span><strong>Question Bank</strong><small>Search, filter, edit, and review saved questions</small></span>
-          <b>→</b>
-        </button>
-        <button className="quick-action" onClick={exams.length ? onOpenExams : onCreateExam}>
-          <span className="quick-action-icon">◫</span>
-          <span><strong>{exams.length ? 'Full-Length Exams' : 'Create a Full-Length'}</strong><small>{exams.length ? 'Build, resume, and review exam attempts' : 'Create your first timed practice exam'}</small></span>
-          <b>→</b>
-        </button>
+      <div className="minimal-stat-grid">
+        <DashboardMetric label="Total questions" value={questions.length} detail={`${questions.filter((question) => question.reviewStatus !== 'needs review').length} reviewed`} icon="bank" />
+        <DashboardMetric label="Review queue" value={reviewQueue.length} detail={`${questions.filter((question) => question.flagged).length} flagged`} icon="review" tone="amber" />
+        <DashboardMetric label="Active exams" value={activeExams.length} detail={`${completedAttempts.length} completed attempts`} icon="exam" tone="violet" />
       </div>
 
-      <div className="dashboard-kpi-grid">
-        <DashboardMetric label="Questions saved" value={questions.length} detail={`${reviewed} reviewed`} icon="▦" />
-        <DashboardMetric label="Correct records" value={`${correctRate}%`} detail={`${totals.correct || 0} marked correct`} icon="✓" tone="success" />
-        <DashboardMetric label="Review queue" value={reviewQueue.length} detail={`${questions.filter((question) => question.flagged).length} flagged`} icon="↻" tone="warning" />
-        <DashboardMetric label="Full-lengths" value={exams.length} detail={`${completedAttempts.length} completed attempt${completedAttempts.length === 1 ? '' : 's'}`} icon="◫" tone="info" />
-      </div>
-
-      <div className="dashboard-main-grid">
-        <section className="panel dashboard-performance-panel">
-          <div className="dashboard-panel-heading">
+      <div className="minimal-focus-grid">
+        <section className="panel continue-study-card">
+          <div className="continue-study-copy">
+            <p className="minimal-section-label">CONTINUE STUDYING</p>
+            <h2>Pick up where you left off.</h2>
+            <p>{nextQuestion ? 'Your highest-priority question is ready to review.' : 'Add your first question to begin building your review workflow.'}</p>
+          </div>
+          <div className="continue-study-resume">
+            <div className="resume-card-icon"><SidebarIcon name="review" /></div>
             <div>
-              <p className="eyebrow">QUESTION BANK PERFORMANCE</p>
-              <h2>Performance by subject</h2>
+              <small>{nextQuestion ? 'Resume' : 'Get started'}</small>
+              <strong>{nextQuestion ? (nextQuestion.topic || `Question ${nextQuestion.questionNumber || ''}`) : 'Create your question bank'}</strong>
+              <span>{nextQuestion ? `${reviewQueue.length} question${reviewQueue.length === 1 ? '' : 's'} in your review queue` : 'Save passages, images, answers, and explanations'}</span>
             </div>
-            <button className="text-button" onClick={onOpenLog}>View question bank →</button>
           </div>
-
-          {subjectStats.length === 0 ? (
-            <div className="dashboard-inline-empty">Add questions to see subject-level performance.</div>
-          ) : (
-            <div className="subject-performance-list">
-              {subjectStats.map((item) => (
-                <div className="subject-performance-row" key={item.subject}>
-                  <div className="subject-performance-copy">
-                    <strong>{item.subject}</strong>
-                    <span>{item.total} question{item.total === 1 ? '' : 's'} • {item.review} to review</span>
-                  </div>
-                  <div className="subject-performance-track" aria-label={`${item.percent}% correct`}>
-                    <span style={{ width: `${item.percent}%` }}></span>
-                  </div>
-                  <strong className="subject-performance-percent">{item.percent}%</strong>
-                </div>
-              ))}
-            </div>
-          )}
-          <div className="dashboard-progress-summary">
-            <span><strong>{reviewProgress}%</strong> review completion</span>
-            <div><i style={{ width: `${reviewProgress}%` }}></i></div>
+          <div className="continue-study-actions">
+            <button className="primary-button" onClick={() => nextQuestion ? onReview(nextQuestion) : onAdd()}>
+              <span aria-hidden="true">▷</span> {nextQuestion ? 'Start review' : 'Add a question'}
+            </button>
+            <button className="secondary-button" onClick={onOpenLog}>Go to question bank</button>
           </div>
         </section>
 
-        <section className="panel dashboard-exam-command">
-          <div className="exam-command-header">
-            <div className="exam-command-mark">FL</div>
-            <div><p className="eyebrow">TEST CENTER</p><h2>Full-Length Exams</h2></div>
+        <section className="panel today-focus-card">
+          <div className="minimal-card-heading">
+            <div className="minimal-heading-icon"><SidebarIcon name="calendar" /></div>
+            <div><h2>Today’s focus</h2><p>Three clear next steps.</p></div>
           </div>
-          <div className="exam-command-metrics">
-            <div><span>Saved exams</span><strong>{exams.length}</strong></div>
-            <div><span>In progress</span><strong>{inProgressExams}</strong></div>
-            <div><span>Best score</span><strong>{bestScore === null ? '—' : `${bestScore}%`}</strong></div>
+          <div className="today-focus-list">
+            <button onClick={() => nextQuestion ? onReview(nextQuestion) : onAdd()}>
+              <span className={`focus-status ${reviewQueue.length === 0 ? 'complete' : ''}`}>{reviewQueue.length === 0 ? '✓' : ''}</span>
+              <span><strong>Review priority questions</strong><small>{reviewQueue.length === 0 ? 'Queue cleared' : `${reviewQueue.length} remaining`}</small></span>
+              <b>›</b>
+            </button>
+            <button onClick={nextExam ? onOpenExams : onCreateExam}>
+              <span className={`focus-status ${completedAttempts.length > 0 ? 'complete' : ''}`}>{completedAttempts.length > 0 ? '✓' : ''}</span>
+              <span><strong>{activeExams.length ? 'Continue your full-length' : 'Plan a full-length exam'}</strong><small>{activeExams.length ? `${activeExams.length} in progress` : `${exams.length} saved`}</small></span>
+              <b>›</b>
+            </button>
+            <button onClick={onAdd}>
+              <span className="focus-status"></span>
+              <span><strong>Log the next missed question</strong><small>Keep your review reasoning fresh</small></span>
+              <b>›</b>
+            </button>
           </div>
-          <div className="exam-command-list">
-            {exams.slice(0, 3).map((exam) => {
-              const attemptCount = (exam.attempts || []).length;
-              const assigned = (exam.sections || []).reduce((sum, section) => sum + (section.questionIds || []).length, 0);
-              return (
-                <button key={exam.id} onClick={onOpenExams}>
-                  <span><strong>{exam.title || 'Full-Length Exam'}</strong><small>{assigned} questions • {attemptCount} completed attempt{attemptCount === 1 ? '' : 's'}</small></span>
-                  <b>{exam.activeAttempt?.status === 'in-progress' ? 'Resume' : 'Open'} →</b>
-                </button>
-              );
-            })}
-            {exams.length === 0 && <div className="dashboard-inline-empty compact">No full-length exams created yet.</div>}
-          </div>
-          <button className="primary-button full-width-button" onClick={exams.length ? onOpenExams : onCreateExam}>
-            {exams.length ? 'Open Full-Length Center' : 'Create First Full-Length'}
-          </button>
         </section>
       </div>
 
-      <div className="dashboard-lower-grid">
-        <section className="panel dashboard-list-panel">
-          <div className="dashboard-panel-heading">
-            <div><p className="eyebrow">PRIORITY WORK</p><h2>Review queue</h2></div>
-            <span className="dashboard-count-pill">{reviewQueue.length}</span>
+      <div className="minimal-lower-grid">
+        <section className="panel minimal-list-card">
+          <div className="minimal-list-heading">
+            <div><h2>Review queue</h2><span className="minimal-count-badge">{reviewQueue.length}</span></div>
+            <button className="text-button" onClick={onOpenLog}>View all</button>
           </div>
-          {priorityReview.length === 0 ? (
-            <div className="dashboard-success-empty"><span>✓</span><strong>You are caught up</strong><small>No questions currently need review.</small></div>
-          ) : (
-            <div className="dashboard-record-list">
+          {priorityReview.length ? (
+            <div className="minimal-review-list">
               {priorityReview.map((question) => (
                 <button key={question.id} onClick={() => onReview(question)}>
-                  <span className={`dashboard-record-status ${question.flagged ? 'flagged' : question.result}`}></span>
-                  <span className="dashboard-record-number">Q{question.questionNumber || '—'}</span>
-                  <span className="dashboard-record-copy"><strong>{question.topic || 'Untitled topic'}</strong><small>{question.subject || 'No subject'} • {question.flagged ? 'Flagged' : question.reviewStatus}</small></span>
-                  <span className="dashboard-record-arrow">›</span>
+                  <span className={`subject-chip ${String(question.subject || '').toLowerCase().includes('bio') ? 'green' : String(question.subject || '').toLowerCase().includes('psych') ? 'orange' : ''}`}>{(question.subject || 'Q').slice(0, 2).toUpperCase()}</span>
+                  <span><strong>{question.topic || `Question ${question.questionNumber || ''}`}</strong><small>{question.subject || 'Uncategorized'}</small></span>
+                  <span className="minimal-list-meta">{question.flagged ? 'Flagged' : question.reviewStatus}</span>
                 </button>
               ))}
             </div>
+          ) : (
+            <div className="minimal-empty-state"><span>✓</span><strong>You’re caught up</strong><small>No questions currently need review.</small></div>
           )}
+          <button className="minimal-card-footer" onClick={onOpenLog}>Go to review queue <span>→</span></button>
         </section>
 
-        <section className="panel dashboard-list-panel">
-          <div className="dashboard-panel-heading">
-            <div><p className="eyebrow">RECENT ACTIVITY</p><h2>Continue where you left off</h2></div>
-            <button className="text-button" onClick={onOpenLog}>View all →</button>
+        <section className="panel minimal-list-card">
+          <div className="minimal-list-heading">
+            <div><h2>Full-length exams</h2></div>
+            <button className="text-button" onClick={onOpenExams}>View all</button>
           </div>
-          {recent.length === 0 ? (
-            <div className="dashboard-inline-empty">Your recently edited questions will appear here.</div>
+          {exams.length ? (
+            <div className="minimal-exam-list">
+              {exams.slice(0, 3).map((exam, index) => {
+                const latestAttempt = [...(exam.attempts || [])].sort((a, b) => new Date(b.completedAt || b.startedAt) - new Date(a.completedAt || a.startedAt))[0];
+                const assigned = (exam.sections || []).reduce((sum, section) => sum + (section.questionIds || []).length, 0);
+                return (
+                  <button key={exam.id} onClick={onOpenExams}>
+                    <span className="exam-index"><small>FL</small>{index + 1}</span>
+                    <span><strong>{exam.title || `Full-Length ${index + 1}`}</strong><small>{exam.activeAttempt?.status === 'in-progress' ? 'In progress' : `${assigned} assigned questions`}</small></span>
+                    <span className="exam-score">{exam.activeAttempt?.status === 'in-progress' ? 'Resume' : latestAttempt?.score?.percent != null ? `${latestAttempt.score.percent}%` : 'Start'}</span>
+                  </button>
+                );
+              })}
+            </div>
           ) : (
-            <div className="dashboard-record-list">
+            <div className="minimal-empty-state"><span>FL</span><strong>No exams yet</strong><small>Create a timed or untimed full-length from your saved questions.</small></div>
+          )}
+          <button className="minimal-card-footer" onClick={exams.length ? onOpenExams : onCreateExam}>{exams.length ? 'Go to full-length exams' : 'Create your first full-length'} <span>→</span></button>
+        </section>
+
+        <section className="panel minimal-list-card">
+          <div className="minimal-list-heading">
+            <div><h2>Recent activity</h2></div>
+            <button className="text-button" onClick={onOpenLog}>View all</button>
+          </div>
+          {recent.length ? (
+            <div className="minimal-activity-list">
               {recent.map((question) => (
                 <button key={question.id} onClick={() => onReview(question)}>
-                  <span className={`dashboard-record-status ${question.result}`}></span>
-                  <span className="dashboard-record-number">Q{question.questionNumber || '—'}</span>
-                  <span className="dashboard-record-copy"><strong>{question.topic || 'Untitled topic'}</strong><small>{question.subject || 'No subject'} • {question.dateCompleted || 'No date'}</small></span>
-                  <ResultBadge result={question.result} />
-                  <span className="dashboard-record-arrow">›</span>
+                  <span className={`activity-dot ${question.result}`}></span>
+                  <span><strong>{question.topic || `Question ${question.questionNumber || ''}`}</strong><small>{question.subject || 'Uncategorized'} • {question.result}</small></span>
+                  <time>{formatActivityDate(question.updatedAt || question.dateCompleted)}</time>
                 </button>
               ))}
             </div>
+          ) : (
+            <div className="minimal-empty-state"><span>·</span><strong>No recent activity</strong><small>Your latest saved and reviewed questions will appear here.</small></div>
           )}
         </section>
       </div>
@@ -813,8 +794,8 @@ function Dashboard({ questions, exams, onAdd, onOpenLog, onOpenExams, onCreateEx
 
 function DashboardMetric({ label, value, detail, icon, tone = '' }) {
   return (
-    <article className={`dashboard-metric ${tone}`}>
-      <div className="dashboard-metric-icon">{icon}</div>
+    <article className={`minimal-stat-card ${tone}`}>
+      <div className="minimal-stat-icon"><SidebarIcon name={icon}/></div>
       <div><span>{label}</span><strong>{value}</strong><small>{detail}</small></div>
     </article>
   );
