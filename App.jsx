@@ -1,6 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from './Auth.jsx';
 import {
+  AnnotatableText,
+  ExamBuilder,
+  ExamLibrary,
+  ExamResults,
+  TestRunner,
+  applySelectionFormat,
+  createAttempt,
+  createEmptyExam,
+  normalizeExam,
+} from './ExamCenter.jsx';
+import {
   deleteQuestion as deleteQuestionFromDb,
   getAllQuestions,
   replaceAllQuestions,
@@ -12,6 +23,10 @@ const PAGE = {
   LOG: 'log',
   ADD: 'add',
   REVIEW: 'review',
+  EXAMS: 'exams',
+  EXAM_BUILDER: 'exam-builder',
+  TEST: 'test',
+  RESULTS: 'results',
 };
 
 const RESULT_OPTIONS = ['correct', 'incorrect', 'guessed', 'slow'];
@@ -142,9 +157,13 @@ function App() {
   const { user, signOut } = useAuth();
   const [page, setPage] = useState(PAGE.DASHBOARD);
   const [questions, setQuestions] = useState([]);
+  const [exams, setExams] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editingQuestion, setEditingQuestion] = useState(null);
   const [activeQuestionId, setActiveQuestionId] = useState(null);
+  const [editingExam, setEditingExam] = useState(null);
+  const [activeExamId, setActiveExamId] = useState(null);
+  const [resultContext, setResultContext] = useState(null);
   const [notice, setNotice] = useState('');
   const importInputRef = useRef(null);
 
@@ -152,11 +171,14 @@ function App() {
     async function load() {
       try {
         const stored = await getAllQuestions();
-        if (stored.length === 0) {
+        const storedExams = stored.filter((record) => record.recordType === 'exam').map(normalizeExam);
+        const storedQuestions = stored.filter((record) => record.recordType !== 'exam');
+        setExams(storedExams);
+        if (storedQuestions.length === 0) {
           await saveQuestion(starterQuestion);
           setQuestions([starterQuestion]);
         } else {
-          setQuestions(stored);
+          setQuestions(storedQuestions);
         }
       } catch (error) {
         console.error(error);
@@ -183,6 +205,7 @@ function App() {
 
   const activeQuestion =
     questions.find((question) => question.id === activeQuestionId) || sortedQuestions[0] || null;
+  const activeExam = exams.find((exam) => exam.id === activeExamId) || null;
 
   function flash(message) {
     setNotice(message);
@@ -262,6 +285,106 @@ function App() {
     setQuestions((current) => current.map((item) => (item.id === updated.id ? updated : item)));
   }
 
+  async function handleUpdateQuestion(question, options = {}) {
+    const updated = { ...question, updatedAt: new Date().toISOString() };
+    await saveQuestion(updated);
+    setQuestions((current) => current.map((item) => (item.id === updated.id ? updated : item)));
+    if (!options.silent) flash('Question updated.');
+    return updated;
+  }
+
+  function startCreateExam() {
+    setEditingExam(createEmptyExam());
+    navigate(PAGE.EXAM_BUILDER);
+  }
+
+  function startEditExam(exam) {
+    setEditingExam(normalizeExam(exam));
+    navigate(PAGE.EXAM_BUILDER);
+  }
+
+  async function handleSaveExam(exam, options = {}) {
+    const updated = normalizeExam({ ...exam, updatedAt: new Date().toISOString() });
+    await saveQuestion(updated);
+    setExams((current) => {
+      const exists = current.some((item) => item.id === updated.id);
+      return exists
+        ? current.map((item) => (item.id === updated.id ? updated : item))
+        : [updated, ...current];
+    });
+    setActiveExamId(updated.id);
+    setEditingExam(null);
+    if (!options.silent) {
+      flash('Full-length exam saved.');
+      navigate(PAGE.EXAMS);
+    }
+    return updated;
+  }
+
+  async function handleDeleteExam(exam) {
+    if (!window.confirm(`Delete ${exam.title}? This also removes its saved attempts.`)) return;
+    await deleteQuestionFromDb(exam.id);
+    setExams((current) => current.filter((item) => item.id !== exam.id));
+    if (activeExamId === exam.id) setActiveExamId(null);
+    flash('Full-length exam deleted.');
+  }
+
+  async function startExam(exam) {
+    const normalized = normalizeExam(exam);
+    const activeAttempt = normalized.activeAttempt?.status === 'in-progress'
+      ? normalized.activeAttempt
+      : createAttempt(normalized);
+    const updated = { ...normalized, activeAttempt, updatedAt: new Date().toISOString() };
+    await handleSaveExam(updated, { silent: true });
+    setActiveExamId(updated.id);
+    setResultContext(null);
+    navigate(PAGE.TEST);
+  }
+
+  async function finishExam(exam, completedAttempt) {
+    const normalized = normalizeExam(exam);
+    const updatedExam = {
+      ...normalized,
+      activeAttempt: null,
+      attempts: [...normalized.attempts, completedAttempt],
+      updatedAt: new Date().toISOString(),
+    };
+    await handleSaveExam(updatedExam, { silent: true });
+
+    const testedQuestionIds = new Set(normalized.sections.flatMap((section) => section.questionIds));
+    const completedDate = new Date().toISOString().slice(0, 10);
+    const questionUpdates = questions
+      .filter((question) => testedQuestionIds.has(question.id))
+      .map((question) => {
+        const answer = completedAttempt.answers?.[question.id];
+        const answered = answer !== undefined;
+        const correct = answered && Number(answer) === Number(question.correctAnswer);
+        return {
+          ...question,
+          selectedAnswer: answered ? Number(answer) : '',
+          result: correct ? 'correct' : 'incorrect',
+          dateCompleted: completedDate,
+          reviewStatus: correct ? question.reviewStatus : 'needs review',
+          updatedAt: new Date().toISOString(),
+        };
+      });
+
+    await Promise.all(questionUpdates.map((question) => saveQuestion(question)));
+    setQuestions((current) => {
+      const updates = new Map(questionUpdates.map((question) => [question.id, question]));
+      return current.map((question) => updates.get(question.id) || question);
+    });
+    setResultContext({ exam: updatedExam, attempt: completedAttempt });
+    setActiveExamId(updatedExam.id);
+    navigate(PAGE.RESULTS);
+  }
+
+  function openExamResult(exam, attempt) {
+    setResultContext({ exam: normalizeExam(exam), attempt });
+    setActiveExamId(exam.id);
+    navigate(PAGE.RESULTS);
+  }
+
   function startAdd() {
     setEditingQuestion(emptyQuestion());
     navigate(PAGE.ADD);
@@ -280,9 +403,11 @@ function App() {
   function exportBackup() {
     const payload = {
       app: 'MCAT Question Log',
-      version: 1,
+      version: 2,
       exportedAt: new Date().toISOString(),
       questions,
+      exams,
+      records: [...questions, ...exams],
     };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -302,20 +427,27 @@ function App() {
     try {
       const text = await file.text();
       const parsed = JSON.parse(text);
-      const importedQuestions = Array.isArray(parsed) ? parsed : parsed.questions;
-      if (!Array.isArray(importedQuestions)) throw new Error('Invalid backup format');
+      const rawRecords = Array.isArray(parsed)
+        ? parsed
+        : Array.isArray(parsed.records)
+          ? parsed.records
+          : [...(Array.isArray(parsed.questions) ? parsed.questions : []), ...(Array.isArray(parsed.exams) ? parsed.exams : [])];
+      if (!Array.isArray(rawRecords)) throw new Error('Invalid backup format');
 
+      const importedExams = rawRecords.filter((record) => record.recordType === 'exam').map(normalizeExam);
+      const importedQuestions = rawRecords.filter((record) => record.recordType !== 'exam').map(normalizeImportedQuestion);
       const confirmed = window.confirm(
-        `Import ${importedQuestions.length} question(s)? This replaces the questions currently stored in the app.`,
+        `Import ${importedQuestions.length} question(s) and ${importedExams.length} full-length exam(s)? This replaces the records currently stored in the app.`,
       );
       if (!confirmed) return;
 
-      const normalized = importedQuestions.map(normalizeImportedQuestion);
-      await replaceAllQuestions(normalized);
-      setQuestions(normalized);
-      setActiveQuestionId(normalized[0]?.id || null);
+      await replaceAllQuestions([...importedQuestions, ...importedExams]);
+      setQuestions(importedQuestions);
+      setExams(importedExams);
+      setActiveQuestionId(importedQuestions[0]?.id || null);
+      setActiveExamId(importedExams[0]?.id || null);
       flash('Backup imported successfully.');
-      navigate(PAGE.LOG);
+      navigate(PAGE.DASHBOARD);
     } catch (error) {
       console.error(error);
       window.alert('That file is not a valid MCAT Question Log backup.');
@@ -328,7 +460,7 @@ function App() {
 
   return (
     <div className="app-shell">
-      {page !== PAGE.REVIEW && <header className="top-header">
+      {page !== PAGE.REVIEW && page !== PAGE.TEST && <header className="top-header">
         <button className="brand" onClick={() => navigate(PAGE.DASHBOARD)}>
           <span className="brand-mark">M</span>
           <span>
@@ -343,6 +475,9 @@ function App() {
           </NavButton>
           <NavButton active={page === PAGE.LOG} onClick={() => navigate(PAGE.LOG)}>
             Question Log
+          </NavButton>
+          <NavButton active={page === PAGE.EXAMS || page === PAGE.EXAM_BUILDER || page === PAGE.RESULTS} onClick={() => navigate(PAGE.EXAMS)}>
+            Full-Length Exams
           </NavButton>
           <NavButton active={page === PAGE.ADD} onClick={startAdd}>
             Add Question
@@ -378,12 +513,15 @@ function App() {
 
       {notice && <div className="notice" role="status">{notice}</div>}
 
-      <main className={page === PAGE.REVIEW ? 'review-main' : 'page-main'}>
+      <main className={page === PAGE.REVIEW || page === PAGE.TEST ? 'review-main' : 'page-main'}>
         {page === PAGE.DASHBOARD && (
           <Dashboard
             questions={questions}
+            exams={exams}
             onAdd={startAdd}
             onOpenLog={() => navigate(PAGE.LOG)}
+            onOpenExams={() => navigate(PAGE.EXAMS)}
+            onCreateExam={startCreateExam}
             onReview={openReview}
           />
         )}
@@ -416,7 +554,50 @@ function App() {
             onEdit={startEdit}
             onDelete={handleDelete}
             onToggleFlag={handleToggleFlag}
+            onUpdateQuestion={handleUpdateQuestion}
             onOpenLog={() => navigate(PAGE.LOG)}
+          />
+        )}
+
+        {page === PAGE.EXAMS && (
+          <ExamLibrary
+            exams={exams}
+            questions={questions}
+            onCreate={startCreateExam}
+            onEdit={startEditExam}
+            onDelete={handleDeleteExam}
+            onStart={startExam}
+            onOpenResult={openExamResult}
+          />
+        )}
+
+        {page === PAGE.EXAM_BUILDER && (
+          <ExamBuilder
+            initialExam={editingExam || createEmptyExam()}
+            questions={questions}
+            onSave={handleSaveExam}
+            onCancel={() => navigate(PAGE.EXAMS)}
+          />
+        )}
+
+        {page === PAGE.TEST && activeExam && (
+          <TestRunner
+            exam={activeExam}
+            questions={questions}
+            onSaveExam={handleSaveExam}
+            onFinish={finishExam}
+            onExit={() => navigate(PAGE.EXAMS)}
+          />
+        )}
+
+        {page === PAGE.RESULTS && resultContext && (
+          <ExamResults
+            exam={resultContext.exam}
+            attempt={resultContext.attempt}
+            questions={questions}
+            onBack={() => navigate(PAGE.EXAMS)}
+            onRetake={() => startExam(resultContext.exam)}
+            onReviewQuestion={openReview}
           />
         )}
       </main>
@@ -432,7 +613,7 @@ function NavButton({ active, disabled, children, onClick }) {
   );
 }
 
-function Dashboard({ questions, onAdd, onOpenLog, onReview }) {
+function Dashboard({ questions, exams, onAdd, onOpenLog, onOpenExams, onCreateExam, onReview }) {
   const totals = RESULT_OPTIONS.reduce(
     (accumulator, result) => ({
       ...accumulator,
@@ -459,6 +640,7 @@ function Dashboard({ questions, onAdd, onOpenLog, onReview }) {
           <div className="hero-actions">
             <button className="primary-button" onClick={onAdd}>+ Add a question</button>
             <button className="secondary-button" onClick={onOpenLog}>Open question log</button>
+            <button className="secondary-button" onClick={onOpenExams}>Full-Length Exams</button>
           </div>
         </div>
         <div className="hero-visual" aria-hidden="true">
@@ -482,6 +664,19 @@ function Dashboard({ questions, onAdd, onOpenLog, onReview }) {
         <StatCard label="Slow" value={totals.slow} detail="Needs faster recall" tone="info" />
         <StatCard label="Flagged" value={flagged} detail="Priority review" tone="flag" />
       </div>
+
+      <section className="dashboard-exam-banner">
+        <div className="dashboard-exam-icon">▤</div>
+        <div>
+          <p className="eyebrow">FULL-LENGTH TEST CENTER</p>
+          <h2>Build and take complete practice exams</h2>
+          <p>Group your saved questions into sections, use a live timer, highlight passages, cross out choices, flag questions, and receive a score report.</p>
+        </div>
+        <div className="dashboard-exam-actions">
+          <strong>{exams.length}</strong><span>Saved exams</span>
+          <button className="primary-button" onClick={exams.length ? onOpenExams : onCreateExam}>{exams.length ? 'Open exams' : 'Create first exam'}</button>
+        </div>
+      </section>
 
       <section className="panel recent-panel">
         <div className="panel-heading">
@@ -1240,6 +1435,32 @@ function PassageBlocks({ blocks }) {
   });
 }
 
+function AnnotatablePassageBlocks({ question, blocks }) {
+  const annotations = question.reviewAnnotations || {};
+  if (!blocks.length) return <div className="exam-empty-passage">No passage content was saved.</div>;
+
+  return blocks.map((block, index) => {
+    const blockId = block.id || `block-${index}`;
+    if (block.type === 'image') {
+      return (
+        <figure className="exam-passage-figure" key={blockId}>
+          <img src={block.dataUrl} alt={block.name || block.caption || 'Passage figure'} />
+          {block.caption && <figcaption>{block.caption}</figcaption>}
+        </figure>
+      );
+    }
+    return (
+      <AnnotatableText
+        key={blockId}
+        annotationKey={`${question.id}::passage:${blockId}`}
+        text={block.text || ''}
+        html={annotations[`passage:${blockId}`]}
+        className="exam-passage-text"
+      />
+    );
+  });
+}
+
 
 function ReviewPage({
   questions,
@@ -1248,10 +1469,12 @@ function ReviewPage({
   onEdit,
   onDelete,
   onToggleFlag,
+  onUpdateQuestion,
   onOpenLog,
 }) {
   const [showAnswer, setShowAnswer] = useState(true);
   const [selectedAnswer, setSelectedAnswer] = useState('');
+  const [annotationNotice, setAnnotationNotice] = useState('');
 
   useEffect(() => {
     setSelectedAnswer(activeQuestion?.selectedAnswer ?? '');
@@ -1281,6 +1504,25 @@ function ReviewPage({
     onSelectQuestion(question.id);
   }
 
+  async function applyReviewFormat(kind) {
+    const result = applySelectionFormat(kind);
+    if (result.error) {
+      setAnnotationNotice(result.error);
+      window.setTimeout(() => setAnnotationNotice(''), 2500);
+      return;
+    }
+    const [, annotationKey] = result.key.split('::');
+    await onUpdateQuestion({
+      ...activeQuestion,
+      reviewAnnotations: {
+        ...(activeQuestion.reviewAnnotations || {}),
+        [annotationKey]: result.html,
+      },
+    }, { silent: true });
+    setAnnotationNotice(kind === 'highlight' ? 'Highlight saved.' : 'Strikethrough saved.');
+    window.setTimeout(() => setAnnotationNotice(''), 1800);
+  }
+
   return (
     <section className="exam-page">
       <header className="exam-topbar">
@@ -1300,9 +1542,9 @@ function ReviewPage({
 
       <div className="exam-actionbar">
         <div className="exam-action-left">
-          <button><span className="highlight-square"></span> Highlight</button>
-          <button>⌁ Strikethrough</button>
-          <button>▢ Feedback</button>
+          <button type="button" onClick={() => applyReviewFormat('highlight')}><span className="highlight-square"></span> Highlight</button>
+          <button type="button" onClick={() => applyReviewFormat('strike')}>⌁ Strikethrough</button>
+          {annotationNotice && <span className="toolbar-message">{annotationNotice}</span>}
         </div>
         <div className="exam-action-right">
           <button title="Edit question" onClick={() => onEdit(activeQuestion)}>✎</button>
@@ -1325,14 +1567,14 @@ function ReviewPage({
               {activeQuestion.passageTitle || 'Passage'}
               {activeQuestion.passageRange && <span> ({activeQuestion.passageRange})</span>}
             </h2>
-            <PassageBlocks blocks={passageBlocks} />
+            <AnnotatablePassageBlocks question={activeQuestion} blocks={passageBlocks} />
           </div>
         </article>
 
         <article className="exam-question-pane">
           <div className="exam-pane-scroll exam-question-scroll">
             <h2 className="exam-question-number">Question {activeQuestion.questionNumber || currentIndex + 1}</h2>
-            <div className="exam-question-text">{activeQuestion.questionText}</div>
+            <AnnotatableText annotationKey={`${activeQuestion.id}::question`} text={activeQuestion.questionText} html={activeQuestion.reviewAnnotations?.question} className="exam-question-text" />
 
             <div className="exam-answer-list">
               {activeQuestion.choices.map((choice, index) => {

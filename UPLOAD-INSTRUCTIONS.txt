@@ -1,0 +1,12 @@
+MCAT QUESTION LOG V3 — GITHUB UPDATE
+
+This folder matches your current GitHub layout, where App.jsx and main.jsx are at the top level.
+
+1. Open your GitHub mcat-question-log repository.
+2. Click Add file -> Upload files.
+3. Drag EVERYTHING inside this folder into the upload page, including the public folder.
+4. Let GitHub replace files with the same names.
+5. Click Commit changes.
+6. Vercel will redeploy automatically. No new Supabase SQL and no new environment variables are needed.
+
+After deployment, hard refresh once: Command + Shift + R.
