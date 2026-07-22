@@ -632,24 +632,21 @@ function Dashboard({ questions, exams, user, onAdd, onOpenLog, onOpenExams, onCr
   const reviewQueue = questions.filter(
     (question) => question.flagged || question.reviewStatus === 'needs review' || question.result === 'incorrect',
   );
-  const allAttempts = exams.flatMap((exam) => exam.attempts || []);
-  const completedAttempts = allAttempts.filter((attempt) => attempt.status === 'completed');
-  const activeExams = exams.filter((exam) => exam.activeAttempt?.status === 'in-progress');
   const scoredQuestions = questions.filter((question) => question.result === 'correct' || question.result === 'incorrect');
   const correctQuestions = scoredQuestions.filter((question) => question.result === 'correct').length;
   const accuracy = scoredQuestions.length ? Math.round((correctQuestions / scoredQuestions.length) * 100) : 0;
   const reviewedCount = questions.filter((question) => question.reviewStatus !== 'needs review').length;
-  const flaggedCount = questions.filter((question) => question.flagged).length;
-  const reviewLoad = questions.length ? Math.min(100, Math.round((reviewQueue.length / questions.length) * 100)) : 0;
-
+  const activeExams = exams.filter((exam) => exam.activeAttempt?.status === 'in-progress');
+  const completedAttempts = exams.flatMap((exam) => exam.attempts || []).filter((attempt) => attempt.status === 'completed');
   const priorityReview = [...reviewQueue]
     .sort((a, b) => Number(Boolean(b.flagged)) - Number(Boolean(a.flagged)) || new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0))
-    .slice(0, 4);
+    .slice(0, 5);
   const recent = [...questions]
     .sort((a, b) => new Date(b.updatedAt || b.dateCompleted || 0) - new Date(a.updatedAt || a.dateCompleted || 0))
-    .slice(0, 3);
+    .slice(0, 4);
   const nextQuestion = priorityReview[0] || questions[0] || null;
   const nextExam = activeExams[0] || exams[0] || null;
+  const clearPercent = questions.length ? Math.round(((questions.length - reviewQueue.length) / questions.length) * 100) : 100;
 
   const rawName = user?.email?.split('@')[0] || 'Student';
   const displayName = rawName
@@ -672,206 +669,150 @@ function Dashboard({ questions, exams, user, onAdd, onOpenLog, onOpenExams, onCr
     return new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(date);
   };
 
-  const getSubjectCode = (subject = '') => {
+  const subjectCode = (subject = '') => {
     const normalized = subject.toLowerCase();
-    if (normalized.includes('bio')) return 'BB';
-    if (normalized.includes('chem') || normalized.includes('physics')) return 'CP';
-    if (normalized.includes('psych') || normalized.includes('soc')) return 'PS';
-    if (normalized.includes('cars')) return 'CR';
-    return (subject || 'Q').slice(0, 2).toUpperCase();
-  };
-
-  const getSubjectTone = (subject = '') => {
-    const normalized = subject.toLowerCase();
-    if (normalized.includes('bio')) return 'emerald';
-    if (normalized.includes('psych') || normalized.includes('soc')) return 'amber';
-    if (normalized.includes('cars')) return 'violet';
-    return 'blue';
+    if (normalized.includes('bio')) return 'B/B';
+    if (normalized.includes('chem') || normalized.includes('physics')) return 'C/P';
+    if (normalized.includes('psych') || normalized.includes('soc')) return 'P/S';
+    if (normalized.includes('cars')) return 'CARS';
+    return (subject || 'Q').slice(0, 4).toUpperCase();
   };
 
   const latestAttemptFor = (exam) => [...(exam.attempts || [])]
     .sort((a, b) => new Date(b.completedAt || b.startedAt || 0) - new Date(a.completedAt || a.startedAt || 0))[0];
 
   return (
-    <section className="executive-dashboard">
-      <header className="executive-heading">
+    <section className="lux-dashboard">
+      <header className="lux-welcome">
         <div>
-          <p className="executive-kicker"><span></span> PRIVATE STUDY WORKSPACE</p>
+          <div className="lux-live-label"><span></span> PRIVATE STUDY OS</div>
           <h1>{greeting}, {displayName}.</h1>
-          <p>One calm place to capture mistakes, sharpen weak areas, and run full-length practice.</p>
+          <p>Your work, distilled to the next meaningful move.</p>
         </div>
-        <div className="executive-heading-actions">
-          <button className="executive-ghost-button" onClick={onAdd}><span>＋</span> Add question</button>
-          <button className="executive-primary-button" onClick={() => nextQuestion ? onReview(nextQuestion) : onAdd()}>
-            <span className="executive-play">▶</span>{nextQuestion ? 'Begin review' : 'Start building'}
+        <div className="lux-welcome-actions">
+          <button className="lux-button quiet" onClick={onAdd}><span>＋</span> New question</button>
+          <button className="lux-button primary" onClick={() => nextQuestion ? onReview(nextQuestion) : onAdd()}>
+            <span className="lux-play">▶</span>{nextQuestion ? 'Start focus' : 'Create first question'}
           </button>
         </div>
       </header>
 
-      <div className="executive-metric-rail" aria-label="Study overview">
-        <ExecutiveMetric label="Question bank" value={questions.length} detail={`${reviewedCount} reviewed`} />
-        <ExecutiveMetric label="Recorded accuracy" value={scoredQuestions.length ? `${accuracy}%` : '—'} detail={`${scoredQuestions.length} scored`} />
-        <ExecutiveMetric label="Needs attention" value={reviewQueue.length} detail={`${flaggedCount} flagged`} emphasis={reviewQueue.length > 0} />
-        <ExecutiveMetric label="Full-lengths" value={exams.length} detail={`${completedAttempts.length} completed`} />
-      </div>
-
-      <div className="executive-hero-grid">
-        <section className="executive-command-card">
-          <div className="executive-command-glow" aria-hidden="true"></div>
-          <div className="executive-command-grid" aria-hidden="true"></div>
-          <div className="executive-command-copy">
-            <div className="executive-command-label"><span></span> NEXT BEST ACTION</div>
-            <h2>{nextQuestion ? (nextQuestion.topic || `Review question ${nextQuestion.questionNumber || ''}`) : 'Build your personal question bank'}</h2>
+      <section className="lux-stage">
+        <article className="lux-focus-hero">
+          <div className="lux-orb lux-orb-one" aria-hidden="true"></div>
+          <div className="lux-orb lux-orb-two" aria-hidden="true"></div>
+          <div className="lux-focus-copy">
+            <span className="lux-overline">NEXT UP</span>
+            <h2>{nextQuestion ? (nextQuestion.topic || `Question ${nextQuestion.questionNumber || ''}`) : 'Build a question bank that thinks with you.'}</h2>
             <p>
               {nextQuestion
-                ? `${nextQuestion.subject || 'Uncategorized'} · ${nextQuestion.flagged ? 'Flagged for priority review' : 'Ready for focused review'}`
-                : 'Save passages, figures, answer choices, explanations, and the reasoning behind every miss.'}
+                ? `${nextQuestion.subject || 'Uncategorized'}${nextQuestion.flagged ? ' · Flagged for priority review' : ' · Ready for focused review'}`
+                : 'Capture passages, figures, answer logic, and the reason behind every miss.'}
             </p>
-            <div className="executive-command-actions">
-              <button className="executive-light-button" onClick={() => nextQuestion ? onReview(nextQuestion) : onAdd()}>
+            <div className="lux-focus-actions">
+              <button onClick={() => nextQuestion ? onReview(nextQuestion) : onAdd()}>
                 {nextQuestion ? 'Open focused review' : 'Add your first question'} <span>→</span>
               </button>
-              <button className="executive-link-button" onClick={onOpenLog}>View question bank</button>
+              <button className="text" onClick={onOpenLog}>Browse question bank</button>
             </div>
           </div>
-          <div className="executive-command-meter">
-            <div className="executive-ring" style={{ '--progress': `${reviewLoad * 3.6}deg` }}>
-              <div><strong>{reviewQueue.length}</strong><span>to review</span></div>
+          <div className="lux-focus-gauge">
+            <div className="lux-gauge-ring" style={{ '--lux-progress': `${clearPercent * 3.6}deg` }}>
+              <div><strong>{clearPercent}%</strong><span>clear</span></div>
             </div>
-            <small>{reviewQueue.length ? `${Math.max(0, questions.length - reviewQueue.length)} questions are currently clear` : 'Your review queue is clear'}</small>
+            <p>{reviewQueue.length ? `${reviewQueue.length} item${reviewQueue.length === 1 ? '' : 's'} need attention` : 'Review queue complete'}</p>
           </div>
-          <div className="executive-command-footer">
-            <span><i></i> Cloud saved</span>
-            <span>{nextQuestion?.questionNumber ? `Question ${nextQuestion.questionNumber}` : `${questions.length} saved records`}</span>
-          </div>
-        </section>
+          <div className="lux-focus-footer"><span><i></i> Cloud protected</span><span>{questions.length} saved question{questions.length === 1 ? '' : 's'}</span></div>
+        </article>
 
-        <section className="executive-today-card">
-          <div className="executive-panel-title">
-            <div><p>FOCUS PLAN</p><h2>Today</h2></div>
-            <span className="executive-date-chip">{new Intl.DateTimeFormat(undefined, { weekday: 'short', month: 'short', day: 'numeric' }).format(new Date())}</span>
+        <article className="lux-insight-panel">
+          <div className="lux-panel-heading"><span className="lux-overline">AT A GLANCE</span><span className="lux-date-pill">Today</span></div>
+          <div className="lux-insight-value"><strong>{scoredQuestions.length ? `${accuracy}%` : '—'}</strong><span>recorded accuracy</span></div>
+          <div className="lux-insight-divider"></div>
+          <div className="lux-insight-grid">
+            <LuxStat label="Reviewed" value={reviewedCount} detail={`of ${questions.length}`} />
+            <LuxStat label="Queue" value={reviewQueue.length} detail="to revisit" alert={reviewQueue.length > 0} />
+            <LuxStat label="Full-lengths" value={exams.length} detail={`${completedAttempts.length} complete`} />
+            <LuxStat label="In progress" value={activeExams.length} detail="active sessions" />
           </div>
-          <div className="executive-focus-list">
-            <button onClick={() => nextQuestion ? onReview(nextQuestion) : onAdd()}>
-              <span className={`executive-check ${reviewQueue.length === 0 ? 'done' : ''}`}>{reviewQueue.length === 0 ? '✓' : '1'}</span>
-              <span><strong>{reviewQueue.length ? 'Clear priority review' : 'Keep the queue clear'}</strong><small>{reviewQueue.length ? `${reviewQueue.length} question${reviewQueue.length === 1 ? '' : 's'} waiting` : 'Everything is reviewed'}</small></span>
-              <b>→</b>
-            </button>
-            <button onClick={nextExam ? onOpenExams : onCreateExam}>
-              <span className={`executive-check ${activeExams.length ? 'active' : ''}`}>2</span>
-              <span><strong>{activeExams.length ? 'Resume full-length' : 'Prepare a full-length'}</strong><small>{activeExams.length ? `${activeExams.length} exam${activeExams.length === 1 ? '' : 's'} in progress` : `${exams.length} exam${exams.length === 1 ? '' : 's'} created`}</small></span>
-              <b>→</b>
-            </button>
-            <button onClick={onAdd}>
-              <span className="executive-check">3</span>
-              <span><strong>Capture the next miss</strong><small>Log it while the reasoning is fresh</small></span>
-              <b>→</b>
-            </button>
-          </div>
-          <div className="executive-today-footer">
-            <span className="executive-mini-orbit"><i></i></span>
-            <p><strong>Focused, not crowded.</strong><small>Your workspace surfaces only what needs action.</small></p>
-          </div>
-        </section>
-      </div>
+          <button className="lux-insight-action" onClick={nextExam ? onOpenExams : onCreateExam}>
+            <span>{activeExams.length ? 'Resume simulation' : 'Create a full-length'}</span><b>↗</b>
+          </button>
+        </article>
+      </section>
 
-      <div className="executive-content-grid">
-        <section className="executive-panel executive-review-panel">
-          <div className="executive-panel-title">
-            <div><p>PRIORITY QUEUE</p><h2>Needs attention</h2></div>
-            <button onClick={onOpenLog}>View all <span>↗</span></button>
-          </div>
+      <section className="lux-workspace-grid">
+        <article className="lux-card lux-review-card">
+          <header className="lux-card-heading">
+            <div><span className="lux-overline">FOCUS QUEUE</span><h2>Needs your attention</h2></div>
+            <button onClick={onOpenLog}>View all</button>
+          </header>
           {priorityReview.length ? (
-            <div className="executive-review-table">
+            <div className="lux-review-list">
               {priorityReview.map((question, index) => (
                 <button key={question.id} onClick={() => onReview(question)}>
-                  <span className="executive-row-number">{String(index + 1).padStart(2, '0')}</span>
-                  <span className={`executive-subject-tag ${getSubjectTone(question.subject)}`}>{getSubjectCode(question.subject)}</span>
-                  <span className="executive-row-copy">
-                    <strong>{question.topic || `Question ${question.questionNumber || ''}`}</strong>
-                    <small>{question.subject || 'Uncategorized'}{question.questionNumber ? ` · Q${question.questionNumber}` : ''}</small>
-                  </span>
-                  <span className={`executive-status-pill ${question.flagged ? 'flagged' : question.result || ''}`}>
-                    {question.flagged ? 'Flagged' : question.result === 'incorrect' ? 'Incorrect' : question.reviewStatus === 'needs review' ? 'Review' : question.result || 'Open'}
-                  </span>
-                  <span className="executive-row-arrow">→</span>
+                  <span className="lux-index">{String(index + 1).padStart(2, '0')}</span>
+                  <span className="lux-subject">{subjectCode(question.subject)}</span>
+                  <span className="lux-row-copy"><strong>{question.topic || `Question ${question.questionNumber || ''}`}</strong><small>{question.subject || 'Uncategorized'}{question.questionNumber ? ` · Q${question.questionNumber}` : ''}</small></span>
+                  <span className={`lux-state ${question.flagged ? 'flagged' : question.result || ''}`}>{question.flagged ? 'Flagged' : question.result === 'incorrect' ? 'Incorrect' : 'Review'}</span>
+                  <span className="lux-arrow">→</span>
                 </button>
               ))}
             </div>
           ) : (
-            <div className="executive-empty-state">
-              <span>✓</span><div><strong>Nothing needs attention.</strong><small>Your review queue is completely clear.</small></div>
-            </div>
+            <div className="lux-empty"><span>✓</span><div><strong>Beautifully clear.</strong><small>Nothing is waiting in your review queue.</small></div></div>
           )}
-          <button className="executive-panel-footer" onClick={onOpenLog}>Open complete question bank <span>→</span></button>
-        </section>
+          <button className="lux-card-footer" onClick={onOpenLog}>Open question bank <span>→</span></button>
+        </article>
 
-        <section className="executive-panel executive-exam-panel">
-          <div className="executive-panel-title">
-            <div><p>SIMULATION LAB</p><h2>Full-lengths</h2></div>
-            <button onClick={onOpenExams}>View all <span>↗</span></button>
-          </div>
+        <article className="lux-card lux-exams-card">
+          <header className="lux-card-heading">
+            <div><span className="lux-overline">SIMULATION</span><h2>Full-length library</h2></div>
+            <button onClick={onOpenExams}>Manage</button>
+          </header>
           {exams.length ? (
-            <div className="executive-exam-stack">
+            <div className="lux-exam-shelf">
               {exams.slice(0, 3).map((exam, index) => {
                 const latestAttempt = latestAttemptFor(exam);
-                const assigned = (exam.sections || []).reduce((sum, section) => sum + (section.questionIds || []).length, 0);
                 const inProgress = exam.activeAttempt?.status === 'in-progress';
+                const assigned = (exam.sections || []).reduce((sum, section) => sum + (section.questionIds || []).length, 0);
                 return (
-                  <button key={exam.id} onClick={onOpenExams} className={inProgress ? 'active' : ''}>
-                    <span className="executive-exam-mark"><small>FL</small>{index + 1}</span>
-                    <span className="executive-exam-copy"><strong>{exam.title || `Full-Length ${index + 1}`}</strong><small>{inProgress ? 'Session in progress' : `${assigned} assigned questions`}</small></span>
-                    <span className="executive-exam-result">
-                      <strong>{inProgress ? 'Resume' : latestAttempt?.score?.percent != null ? `${latestAttempt.score.percent}%` : 'Ready'}</strong>
-                      <small>{inProgress ? 'Continue' : latestAttempt?.status === 'completed' ? 'Latest score' : 'Not started'}</small>
-                    </span>
+                  <button key={exam.id} className={inProgress ? 'active' : ''} onClick={onOpenExams}>
+                    <span className="lux-exam-art"><i>FL</i><b>{index + 1}</b></span>
+                    <span className="lux-exam-copy"><strong>{exam.title || `Full-Length ${index + 1}`}</strong><small>{inProgress ? 'Session in progress' : `${assigned} assigned questions`}</small></span>
+                    <span className="lux-exam-score"><strong>{inProgress ? 'Resume' : latestAttempt?.score?.percent != null ? `${latestAttempt.score.percent}%` : 'Ready'}</strong><small>{latestAttempt?.status === 'completed' ? 'Latest score' : inProgress ? 'Continue' : 'Not started'}</small></span>
                   </button>
                 );
               })}
             </div>
           ) : (
-            <div className="executive-empty-state executive-exam-empty">
-              <span>FL</span><div><strong>Create your first simulation.</strong><small>Build a timed or untimed exam from saved questions.</small></div>
-            </div>
+            <div className="lux-empty lux-exam-empty"><span>FL</span><div><strong>Your simulation lab is ready.</strong><small>Build timed sections from questions you have saved.</small></div></div>
           )}
-          <button className="executive-panel-footer" onClick={exams.length ? onOpenExams : onCreateExam}>
-            {exams.length ? 'Manage full-length exams' : 'Create a full-length'} <span>→</span>
-          </button>
-        </section>
-      </div>
+          <button className="lux-card-footer" onClick={exams.length ? onOpenExams : onCreateExam}>{exams.length ? 'Open full-lengths' : 'Create first full-length'} <span>→</span></button>
+        </article>
+      </section>
 
-      <section className="executive-activity-strip">
-        <div className="executive-activity-heading"><span className="executive-pulse"></span><div><strong>Latest activity</strong><small>Your most recent question updates</small></div></div>
-        <div className="executive-activity-items">
+      <section className="lux-activity-bar">
+        <div><span className="lux-activity-pulse"></span><p><strong>Recent work</strong><small>Latest updates across your question bank</small></p></div>
+        <div className="lux-activity-items">
           {recent.length ? recent.map((question) => (
             <button key={question.id} onClick={() => onReview(question)}>
-              <span className={`executive-activity-dot ${question.result || ''}`}></span>
+              <span className={`lux-activity-dot ${question.result || ''}`}></span>
               <span><strong>{question.topic || `Question ${question.questionNumber || ''}`}</strong><small>{timeAgo(question.updatedAt || question.dateCompleted)}</small></span>
             </button>
-          )) : <span className="executive-no-activity">Your latest study activity will appear here.</span>}
+          )) : <span className="lux-muted">Your latest activity will appear here.</span>}
         </div>
-        <button className="executive-activity-link" onClick={onOpenLog}>Open log →</button>
+        <button className="lux-open-log" onClick={onOpenLog}>Open log →</button>
       </section>
     </section>
   );
 }
 
-function ExecutiveMetric({ label, value, detail, emphasis = false }) {
+function LuxStat({ label, value, detail, alert = false }) {
   return (
-    <article className={`executive-metric ${emphasis ? 'emphasis' : ''}`}>
-      <span>{label}</span>
-      <strong>{value}</strong>
-      <small>{detail}</small>
-    </article>
-  );
-}
-
-function DashboardMetric({ label, value, detail, icon, tone = '' }) {
-  return (
-    <article className={`minimal-stat-card ${tone}`}>
-      <div className="minimal-stat-icon"><SidebarIcon name={icon}/></div>
-      <div><span>{label}</span><strong>{value}</strong><small>{detail}</small></div>
-    </article>
+    <div className={`lux-stat ${alert ? 'alert' : ''}`}>
+      <span>{label}</span><strong>{value}</strong><small>{detail}</small>
+    </div>
   );
 }
 
@@ -1072,9 +1013,7 @@ function QuestionForm({ initialQuestion, questions, onSave, onCancel }) {
   const passageOptions = useMemo(() => {
     const seen = new Map();
     questions.forEach((item) => {
-      if (item.passageGroupId && !seen.has(item.passageGroupId)) {
-        seen.set(item.passageGroupId, item);
-      }
+      if (item.passageGroupId && !seen.has(item.passageGroupId)) seen.set(item.passageGroupId, item);
     });
     return [...seen.values()];
   }, [questions]);
@@ -1092,6 +1031,17 @@ function QuestionForm({ initialQuestion, questions, onSave, onCancel }) {
     }));
   }
 
+  function startFreshPassage() {
+    const hasContent = (question.passageBlocks || []).some((block) => block.type === 'image' || block.text?.trim());
+    if (hasContent && !window.confirm('Start a fresh passage? The passage currently shown in this form will be cleared.')) return;
+    setQuestion((current) => ({
+      ...current,
+      passageGroupId: '',
+      passageTitle: '',
+      passageRange: '',
+      passageBlocks: [{ id: crypto.randomUUID(), type: 'text', text: '' }],
+    }));
+  }
 
   function handleExplanationImage(event) {
     const file = event.target.files?.[0];
@@ -1112,7 +1062,7 @@ function QuestionForm({ initialQuestion, questions, onSave, onCancel }) {
         ...current,
         explanationImageDataUrl: reader.result,
         explanationImageName: file.name,
-        explanationImageStoragePath: '', 
+        explanationImageStoragePath: '',
       }));
       setImageError('');
     };
@@ -1130,14 +1080,22 @@ function QuestionForm({ initialQuestion, questions, onSave, onCancel }) {
       return;
     }
 
+    const passageBlocks = (question.passageBlocks || []).filter(
+      (block) => block.type === 'image' || String(block.text || '').trim(),
+    );
+    const hasPassage = passageBlocks.length > 0;
+    const passageGroupId = question.passageGroupId || (hasPassage ? `passage-${crypto.randomUUID()}` : '');
+
     setSaving(true);
     try {
       await onSave({
         ...question,
+        passageGroupId,
+        passageBlocks,
+        passageText: '',
         questionNumber: String(question.questionNumber),
         correctAnswer: Number(question.correctAnswer),
-        selectedAnswer:
-          question.selectedAnswer === '' ? '' : Number(question.selectedAnswer),
+        selectedAnswer: question.selectedAnswer === '' ? '' : Number(question.selectedAnswer),
         timeSpent: Math.max(0, Number(question.timeSpent) || 0),
       });
     } catch (error) {
@@ -1148,286 +1106,129 @@ function QuestionForm({ initialQuestion, questions, onSave, onCancel }) {
     }
   }
 
+  const isEditing = Boolean(initialQuestion.questionText);
+  const linkedCount = question.passageGroupId
+    ? questions.filter((item) => item.passageGroupId === question.passageGroupId).length
+    : 0;
+
   return (
-    <section className="form-page">
-      <div className="page-title-row">
-        <div>
-          <p className="eyebrow">{initialQuestion.questionText ? 'EDIT RECORD' : 'NEW RECORD'}</p>
-          <h1>{initialQuestion.questionText ? 'Edit Question' : 'Add Question'}</h1>
-          <p>Capture enough context that future-you can understand the mistake quickly.</p>
+    <form className="authoring-page" onSubmit={submit}>
+      <header className="authoring-header">
+        <div className="authoring-title">
+          <span className="authoring-status-dot"></span>
+          <div><span>{isEditing ? 'EDITING QUESTION' : 'QUESTION STUDIO'}</span><h1>{isEditing ? `Question ${question.questionNumber || ''}` : 'Create a question'}</h1><p>Author it in the same layout you will use to review and test.</p></div>
         </div>
-      </div>
+        <div className="authoring-header-actions">
+          <button type="button" className="authoring-cancel" onClick={onCancel}>Cancel</button>
+          <button type="submit" className="authoring-save" disabled={saving}>{saving ? 'Saving…' : 'Save question'} <span>⌘↵</span></button>
+        </div>
+      </header>
 
-      <form className="question-form" onSubmit={submit}>
-        <section className="panel form-section">
-          <div className="section-heading">
-            <span className="section-number">1</span>
-            <div>
-              <h2>Question details</h2>
-              <p>Basic organization and timing information.</p>
-            </div>
-          </div>
+      <section className="authoring-meta-strip">
+        <TextField label="Question" value={question.questionNumber} onChange={(value) => update('questionNumber', value)} placeholder="18" />
+        <TextField label="Subject" value={question.subject} onChange={(value) => update('subject', value)} placeholder="Biochemistry" />
+        <TextField label="Topic" value={question.topic} onChange={(value) => update('topic', value)} placeholder="Protein interactions" />
+        <TextField label="Date" type="date" value={question.dateCompleted} onChange={(value) => update('dateCompleted', value)} />
+        <TextField label="Seconds" type="number" min="0" value={question.timeSpent} onChange={(value) => update('timeSpent', value)} placeholder="110" />
+        <SelectField label="Result" value={question.result} onChange={(value) => update('result', value)} options={RESULT_OPTIONS} />
+      </section>
 
-          <div className="field-grid three-columns">
-            <TextField
-              label="Question number"
-              value={question.questionNumber}
-              onChange={(value) => update('questionNumber', value)}
-              placeholder="18"
-            />
-            <TextField
-              label="Subject"
-              value={question.subject}
-              onChange={(value) => update('subject', value)}
-              placeholder="Biochemistry"
-            />
-            <TextField
-              label="Topic"
-              value={question.topic}
-              onChange={(value) => update('topic', value)}
-              placeholder="Protein interactions"
-            />
-            <TextField
-              label="Date completed"
-              type="date"
-              value={question.dateCompleted}
-              onChange={(value) => update('dateCompleted', value)}
-            />
-            <TextField
-              label="Time spent (seconds)"
-              type="number"
-              min="0"
-              value={question.timeSpent}
-              onChange={(value) => update('timeSpent', value)}
-              placeholder="110"
-            />
-            <SelectField
-              label="Result"
-              value={question.result}
-              onChange={(value) => update('result', value)}
-              options={RESULT_OPTIONS}
-            />
-          </div>
-        </section>
-
-        <section className="panel form-section">
-          <div className="section-heading">
-            <span className="section-number">2</span>
-            <div>
-              <h2>Shared passage</h2>
-              <p>Build the passage from text and image blocks, then reuse it across several questions.</p>
-            </div>
-          </div>
-
-          {passageOptions.length > 0 && (
-            <label className="form-field full-width shared-passage-picker">
-              <span className="field-label">Use an existing passage</span>
-              <select
-                value=""
-                onChange={(event) => selectSharedPassage(event.target.value)}
-              >
-                <option value="">Choose a saved passage…</option>
+      <section className="authoring-exam-shell">
+        <div className="authoring-exam-topbar">
+          <div><span className="authoring-brand-dot"></span><strong>Question Builder</strong><small>Live exam layout</small></div>
+          <div className="authoring-passage-source">
+            <span>{question.passageGroupId ? `${linkedCount || 1} linked question${linkedCount === 1 ? '' : 's'}` : 'New passage'}</span>
+            {passageOptions.length > 0 && (
+              <select value="" onChange={(event) => selectSharedPassage(event.target.value)} aria-label="Use an existing passage">
+                <option value="">Use saved passage…</option>
                 {passageOptions.map((item) => (
                   <option key={item.passageGroupId} value={item.passageGroupId}>
-                    {item.passageTitle || item.passageGroupId}
-                    {item.passageRange ? ` — ${item.passageRange}` : ''}
+                    {item.passageTitle || 'Untitled passage'}{item.passageRange ? ` — ${item.passageRange}` : ''}
                   </option>
                 ))}
               </select>
-            </label>
-          )}
-
-          <div className="field-grid three-columns">
-            <TextField
-              label="Passage set ID"
-              value={question.passageGroupId}
-              onChange={(value) => update('passageGroupId', value)}
-              placeholder="protein-passage-01"
-            />
-            <TextField
-              label="Passage heading"
-              value={question.passageTitle}
-              onChange={(value) => update('passageTitle', value)}
-              placeholder="Passage 3"
-            />
-            <TextField
-              label="Question range"
-              value={question.passageRange}
-              onChange={(value) => update('passageRange', value)}
-              placeholder="Questions 18–23"
-            />
-          </div>
-
-          <div className="shared-passage-note">
-            Questions with the same <strong>Passage set ID</strong> automatically display and update the same passage.
-          </div>
-
-          <PassageBlockEditor
-            blocks={question.passageBlocks}
-            onChange={(blocks) => update('passageBlocks', blocks)}
-            onError={setImageError}
-          />
-          {imageError && <small className="error-text">{imageError}</small>}
-        </section>
-
-        <section className="panel form-section">
-          <div className="section-heading">
-            <span className="section-number">3</span>
-            <div>
-              <h2>Question and answer choices</h2>
-              <p>Mark the correct answer and the option you selected.</p>
-            </div>
-          </div>
-
-          <TextAreaField
-            label="Question text"
-            value={question.questionText}
-            onChange={(value) => update('questionText', value)}
-            placeholder="Enter the complete question…"
-            rows={4}
-            required
-          />
-
-          <div className="choice-editor-list">
-            {question.choices.map((choice, index) => (
-              <div className="choice-editor" key={index}>
-                <span className="choice-letter">{String.fromCharCode(65 + index)}</span>
-                <input
-                  value={choice}
-                  onChange={(event) => updateChoice(index, event.target.value)}
-                  placeholder={`Answer choice ${String.fromCharCode(65 + index)}`}
-                  required
-                />
-                <label className="choice-radio-label">
-                  <input
-                    type="radio"
-                    name="correct-answer"
-                    checked={Number(question.correctAnswer) === index}
-                    onChange={() => update('correctAnswer', index)}
-                  />
-                  Correct
-                </label>
-                <label className="choice-radio-label">
-                  <input
-                    type="radio"
-                    name="selected-answer"
-                    checked={Number(question.selectedAnswer) === index}
-                    onChange={() => update('selectedAnswer', index)}
-                  />
-                  Mine
-                </label>
-              </div>
-            ))}
-          </div>
-
-          <button
-            className="text-button clear-selection"
-            type="button"
-            onClick={() => update('selectedAnswer', '')}
-          >
-            Clear my selected answer
-          </button>
-        </section>
-
-        <section className="panel form-section">
-          <div className="section-heading">
-            <span className="section-number">4</span>
-            <div>
-              <h2>Review notes</h2>
-              <p>Use the same structure for every missed or slow question.</p>
-            </div>
-          </div>
-
-          <TextAreaField
-            label="Explanation"
-            value={question.explanation}
-            onChange={(value) => update('explanation', value)}
-            placeholder="Why is the correct option correct, and why are the others wrong?"
-            rows={6}
-          />
-
-          <div className="explanation-image-field">
-            <span className="field-label">Explanation figure (optional)</span>
-            {question.explanationImageDataUrl ? (
-              <div className="image-preview-card compact-preview">
-                <img src={question.explanationImageDataUrl} alt="Explanation preview" />
-                <div>
-                  <span>{question.explanationImageName || 'Stored explanation figure'}</span>
-                  <button
-                    type="button"
-                    className="text-button danger-text"
-                    onClick={() => {
-                      setQuestion((current) => ({ ...current, explanationImageDataUrl: '', explanationImageName: '', explanationImageStoragePath: '' }));
-                      update('explanationImageName', '');
-                    }}
-                  >
-                    Remove
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <label className="drop-zone compact-drop-zone">
-                <strong>Choose an explanation image</strong>
-                <span>Useful for diagrams shown above the explanation</span>
-                <input type="file" accept="image/*" onChange={handleExplanationImage} hidden />
-              </label>
             )}
+            <button type="button" onClick={startFreshPassage}>Fresh passage</button>
           </div>
-
-          <div className="field-grid two-columns">
-            <TextAreaField
-              label="Primary Content"
-              value={question.primaryContent}
-              onChange={(value) => update('primaryContent', value)}
-              placeholder="The core concept being tested…"
-              rows={5}
-            />
-            <TextAreaField
-              label="Likely Miss Reason"
-              value={question.likelyMissReason}
-              onChange={(value) => update('likelyMissReason', value)}
-              placeholder="Content gap, equation setup, rushed reading, etc."
-              rows={5}
-            />
-          </div>
-
-          <TextAreaField
-            label="Anki"
-            value={question.anki}
-            onChange={(value) => update('anki', value)}
-            placeholder="A concise, copy-paste-ready Anki takeaway…"
-            rows={5}
-          />
-
-          <div className="field-grid two-columns compact-grid">
-            <SelectField
-              label="Review status"
-              value={question.reviewStatus}
-              onChange={(value) => update('reviewStatus', value)}
-              options={REVIEW_OPTIONS}
-            />
-            <label className="checkbox-field">
-              <input
-                type="checkbox"
-                checked={question.flagged}
-                onChange={(event) => update('flagged', event.target.checked)}
-              />
-              <span>
-                <strong>Flag for priority review</strong>
-                <small>Show this question in your flagged filter.</small>
-              </span>
-            </label>
-          </div>
-        </section>
-
-        <div className="form-actions">
-          <button type="button" className="secondary-button" onClick={onCancel}>Cancel</button>
-          <button type="submit" className="primary-button" disabled={saving}>
-            {saving ? 'Saving…' : 'Save Question'}
-          </button>
         </div>
-      </form>
-    </section>
+
+        <div className="authoring-exam-body">
+          <section className="authoring-passage-pane">
+            <div className="authoring-pane-label"><span>PASSAGE</span><small>Text and figures</small></div>
+            <div className="authoring-passage-heading">
+              <input value={question.passageTitle} onChange={(event) => update('passageTitle', event.target.value)} placeholder="Passage 3" aria-label="Passage heading" />
+              <input value={question.passageRange} onChange={(event) => update('passageRange', event.target.value)} placeholder="Questions 18–23" aria-label="Question range" />
+            </div>
+            <PassageComposer
+              blocks={question.passageBlocks}
+              onChange={(blocks) => update('passageBlocks', blocks)}
+              onError={setImageError}
+            />
+          </section>
+
+          <section className="authoring-question-pane">
+            <div className="authoring-pane-label"><span>QUESTION {question.questionNumber || '—'}</span><small>Choose the correct and selected response</small></div>
+            <textarea
+              className="authoring-question-text"
+              value={question.questionText}
+              onChange={(event) => update('questionText', event.target.value)}
+              placeholder="Write the complete question stem here…"
+              rows={5}
+              required
+            />
+
+            <div className="authoring-choice-list">
+              {question.choices.map((choice, index) => (
+                <div className={`authoring-choice ${Number(question.correctAnswer) === index ? 'correct' : ''} ${Number(question.selectedAnswer) === index ? 'selected' : ''}`} key={index}>
+                  <span className="authoring-choice-letter">{String.fromCharCode(65 + index)}</span>
+                  <input value={choice} onChange={(event) => updateChoice(index, event.target.value)} placeholder={`Answer choice ${String.fromCharCode(65 + index)}`} required />
+                  <div className="authoring-choice-tags">
+                    <label title="Mark as correct answer"><input type="radio" name="correct-answer" checked={Number(question.correctAnswer) === index} onChange={() => update('correctAnswer', index)} /><span>Correct</span></label>
+                    <label title="Mark as your selected answer"><input type="radio" name="selected-answer" checked={Number(question.selectedAnswer) === index} onChange={() => update('selectedAnswer', index)} /><span>Mine</span></label>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <button className="authoring-clear-answer" type="button" onClick={() => update('selectedAnswer', '')}>Clear my selected answer</button>
+
+            <div className="authoring-question-status">
+              <SelectField label="Review status" value={question.reviewStatus} onChange={(value) => update('reviewStatus', value)} options={REVIEW_OPTIONS} />
+              <label className="authoring-flag"><input type="checkbox" checked={question.flagged} onChange={(event) => update('flagged', event.target.checked)} /><span>⚑</span><div><strong>Priority review</strong><small>Surface this on the dashboard</small></div></label>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      {imageError && <div className="authoring-error">{imageError}</div>}
+
+      <section className="authoring-review-shell">
+        <header><div><span>REVIEW BRIEF</span><h2>Turn the question into a durable lesson.</h2></div><p>Keep the reasoning structured so review stays fast.</p></header>
+        <div className="authoring-review-grid">
+          <div className="authoring-explanation-column">
+            <TextAreaField label="Explanation" value={question.explanation} onChange={(value) => update('explanation', value)} placeholder="Why is the correct option correct, and why are the others wrong?" rows={8} />
+            <div className="authoring-explanation-image">
+              <span className="field-label">Explanation figure</span>
+              {question.explanationImageDataUrl ? (
+                <div className="authoring-image-preview"><img src={question.explanationImageDataUrl} alt="Explanation preview" /><div><span>{question.explanationImageName || 'Explanation figure'}</span><button type="button" onClick={() => setQuestion((current) => ({ ...current, explanationImageDataUrl: '', explanationImageName: '', explanationImageStoragePath: '' }))}>Remove</button></div></div>
+              ) : (
+                <label><span>＋</span><strong>Add explanation image</strong><small>PNG, JPG, WEBP · up to 8 MB</small><input type="file" accept="image/*" onChange={handleExplanationImage} hidden /></label>
+              )}
+            </div>
+          </div>
+          <div className="authoring-learning-column">
+            <TextAreaField label="Primary Content" value={question.primaryContent} onChange={(value) => update('primaryContent', value)} placeholder="The core concept being tested…" rows={5} />
+            <TextAreaField label="Likely Miss Reason" value={question.likelyMissReason} onChange={(value) => update('likelyMissReason', value)} placeholder="Content gap, rushed reading, equation setup…" rows={5} />
+            <TextAreaField label="Anki" value={question.anki} onChange={(value) => update('anki', value)} placeholder="A concise, copy-paste-ready takeaway…" rows={5} />
+          </div>
+        </div>
+      </section>
+
+      <footer className="authoring-footer">
+        <p><span></span> Changes are saved securely to your private cloud workspace.</p>
+        <div><button type="button" onClick={onCancel}>Cancel</button><button type="submit" disabled={saving}>{saving ? 'Saving…' : 'Save question'} <span>→</span></button></div>
+      </footer>
+    </form>
   );
 }
 
@@ -1460,113 +1261,136 @@ function SelectField({ label, value, onChange, options }) {
   );
 }
 
-function PassageBlockEditor({ blocks, onChange, onError }) {
-  function addTextBlock() {
-    onChange([...blocks, { id: crypto.randomUUID(), type: 'text', text: '' }]);
+function PassageComposer({ blocks, onChange, onError }) {
+  const fallbackId = useRef(crypto.randomUUID());
+  const activeTextIndex = useRef(0);
+  const workingBlocks = blocks.length
+    ? blocks
+    : [{ id: fallbackId.current, type: 'text', text: '' }];
+
+  function updateText(index, text) {
+    activeTextIndex.current = index;
+    onChange(workingBlocks.map((block, blockIndex) => (blockIndex === index ? { ...block, text } : block)));
   }
 
-  function addImageBlock(event) {
-    const file = event.target.files?.[0];
-    event.target.value = '';
-    if (!file) return;
-    if (!file.type.startsWith('image/')) {
-      onError('Choose a PNG, JPG, WEBP, or other image file.');
-      return;
-    }
-    if (file.size > 8 * 1024 * 1024) {
-      onError('Please use an image smaller than 8 MB.');
-      return;
-    }
+  async function fileToImageBlock(file) {
+    if (!file.type.startsWith('image/')) throw new Error('Choose a PNG, JPG, WEBP, or other image file.');
+    if (file.size > 8 * 1024 * 1024) throw new Error('Please use images smaller than 8 MB.');
+    const dataUrl = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(file);
+    });
+    return { id: crypto.randomUUID(), type: 'image', dataUrl, name: file.name, caption: '' };
+  }
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      onChange([
-        ...blocks,
-        {
-          id: crypto.randomUUID(),
-          type: 'image',
-          dataUrl: reader.result,
-          name: file.name,
-          caption: '',
-        },
-      ]);
+  async function insertImages(fileList, afterIndex = activeTextIndex.current) {
+    const files = [...(fileList || [])].filter(Boolean);
+    if (!files.length) return;
+    try {
+      const imageBlocks = await Promise.all(files.map(fileToImageBlock));
+      const insertionIndex = Math.min(Math.max(0, afterIndex + 1), workingBlocks.length);
+      const next = [
+        ...workingBlocks.slice(0, insertionIndex),
+        ...imageBlocks,
+        { id: crypto.randomUUID(), type: 'text', text: '' },
+        ...workingBlocks.slice(insertionIndex),
+      ];
+      onChange(next);
+      activeTextIndex.current = insertionIndex + imageBlocks.length;
       onError('');
-    };
-    reader.readAsDataURL(file);
+    } catch (error) {
+      onError(error.message || 'That image could not be added.');
+    }
   }
 
-  function updateBlock(id, patch) {
-    onChange(blocks.map((block) => (block.id === id ? { ...block, ...patch } : block)));
+  function updateImage(index, patch) {
+    onChange(workingBlocks.map((block, blockIndex) => (blockIndex === index ? { ...block, ...patch } : block)));
   }
 
-  function removeBlock(id) {
-    onChange(blocks.filter((block) => block.id !== id));
+  function removeImage(index) {
+    const remaining = workingBlocks.filter((_, blockIndex) => blockIndex !== index);
+    const merged = [];
+    remaining.forEach((block) => {
+      const previous = merged[merged.length - 1];
+      if (block.type === 'text' && previous?.type === 'text') {
+        previous.text = [previous.text, block.text].filter(Boolean).join('\n\n');
+      } else {
+        merged.push({ ...block });
+      }
+    });
+    if (!merged.some((block) => block.type === 'text')) merged.push({ id: crypto.randomUUID(), type: 'text', text: '' });
+    onChange(merged);
   }
 
-  function moveBlock(index, direction) {
+  function moveImage(index, direction) {
     const destination = index + direction;
-    if (destination < 0 || destination >= blocks.length) return;
-    const next = [...blocks];
+    if (destination < 0 || destination >= workingBlocks.length) return;
+    const next = [...workingBlocks];
     [next[index], next[destination]] = [next[destination], next[index]];
     onChange(next);
   }
 
+  function handlePaste(event, index) {
+    const files = [...(event.clipboardData?.items || [])]
+      .filter((item) => item.kind === 'file' && item.type.startsWith('image/'))
+      .map((item) => item.getAsFile())
+      .filter(Boolean);
+    if (!files.length) return;
+    event.preventDefault();
+    insertImages(files, index);
+  }
+
+  function handleDrop(event) {
+    const files = [...(event.dataTransfer?.files || [])].filter((file) => file.type.startsWith('image/'));
+    if (!files.length) return;
+    event.preventDefault();
+    insertImages(files);
+  }
+
   return (
-    <div className="passage-block-editor">
-      <div className="passage-block-toolbar">
-        <div>
-          <strong>Passage content</strong>
-          <span>Add text and figures in the exact order they should appear.</span>
-        </div>
-        <div>
-          <button type="button" className="secondary-button" onClick={addTextBlock}>+ Text</button>
-          <label className="secondary-button upload-block-button">
-            + Image
-            <input type="file" accept="image/*" onChange={addImageBlock} hidden />
-          </label>
-        </div>
+    <div className="passage-composer" onDragOver={(event) => event.preventDefault()} onDrop={handleDrop}>
+      <div className="passage-composer-toolbar">
+        <div><strong>Write naturally.</strong><span>Paste text, drop images, or place the cursor and insert a figure.</span></div>
+        <label className="passage-insert-image">＋ Insert image<input type="file" accept="image/*" multiple onChange={(event) => { insertImages(event.target.files); event.target.value = ''; }} hidden /></label>
       </div>
-
-      {blocks.length === 0 ? (
-        <div className="passage-block-empty">Add a text block or image to begin the passage.</div>
-      ) : (
-        <div className="passage-block-list">
-          {blocks.map((block, index) => (
-            <article className="passage-block-card" key={block.id}>
-              <div className="block-card-header">
-                <span>{block.type === 'image' ? 'IMAGE' : 'TEXT'} BLOCK {index + 1}</span>
-                <div>
-                  <button type="button" onClick={() => moveBlock(index, -1)} disabled={index === 0}>↑</button>
-                  <button type="button" onClick={() => moveBlock(index, 1)} disabled={index === blocks.length - 1}>↓</button>
-                  <button type="button" className="danger-text" onClick={() => removeBlock(block.id)}>Remove</button>
-                </div>
-              </div>
-
-              {block.type === 'image' ? (
-                <div className="image-block-editor">
-                  <img src={block.dataUrl} alt={block.name || 'Passage figure'} />
-                  <TextField
-                    label="Figure caption (optional)"
-                    value={block.caption || ''}
-                    onChange={(value) => updateBlock(block.id, { caption: value })}
-                    placeholder="Figure 1  Peptide bonds within a protein segment"
-                  />
-                </div>
-              ) : (
-                <TextAreaField
-                  label="Text"
-                  value={block.text || ''}
-                  onChange={(value) => updateBlock(block.id, { text: value })}
-                  placeholder="Type or paste this part of the passage…"
-                  rows={7}
-                />
-              )}
-            </article>
-          ))}
-        </div>
-      )}
+      <div className="passage-document">
+        {workingBlocks.map((block, index) => block.type === 'image' ? (
+          <figure className="passage-inline-figure" key={block.id}>
+            <img src={block.dataUrl} alt={block.name || block.caption || 'Passage figure'} />
+            <div className="passage-figure-tools">
+              <button type="button" onClick={() => moveImage(index, -1)} disabled={index === 0} title="Move figure up">↑</button>
+              <button type="button" onClick={() => moveImage(index, 1)} disabled={index === workingBlocks.length - 1} title="Move figure down">↓</button>
+              <button type="button" onClick={() => removeImage(index)} title="Remove figure">Remove</button>
+            </div>
+            <input value={block.caption || ''} onChange={(event) => updateImage(index, { caption: event.target.value })} placeholder="Add a figure caption (optional)" />
+          </figure>
+        ) : (
+          <AutoGrowPassageText
+            key={block.id}
+            value={block.text || ''}
+            onFocus={() => { activeTextIndex.current = index; }}
+            onChange={(value) => updateText(index, value)}
+            onPaste={(event) => handlePaste(event, index)}
+            placeholder={index === 0 ? 'Type or paste the passage here. Paste a screenshot directly into the passage whenever you need a figure…' : 'Continue writing below the figure…'}
+          />
+        ))}
+      </div>
+      <div className="passage-composer-hint"><span>⌘V</span> You can paste a screenshot directly while writing.</div>
     </div>
   );
+}
+
+function AutoGrowPassageText({ value, onChange, ...props }) {
+  const ref = useRef(null);
+  useEffect(() => {
+    if (!ref.current) return;
+    ref.current.style.height = '0px';
+    ref.current.style.height = `${Math.max(116, ref.current.scrollHeight)}px`;
+  }, [value]);
+
+  return <textarea ref={ref} className="passage-writing-area" value={value} onChange={(event) => onChange(event.target.value)} {...props} />;
 }
 
 function PassageBlocks({ blocks }) {

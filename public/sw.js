@@ -1,4 +1,4 @@
-const CACHE = 'mcat-question-log-shell-v3';
+const CACHE = 'mcat-question-log-shell-v7';
 const SHELL = ['/', '/index.html', '/manifest.webmanifest', '/icon.svg'];
 
 self.addEventListener('install', (event) => {

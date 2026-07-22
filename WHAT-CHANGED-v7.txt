@@ -1,0 +1,29 @@
+MCAT QUESTION LOG — V7 LUX STUDIO
+
+DASHBOARD
+- Complete Apple-inspired luxury redesign with a floating glass workspace shell.
+- Calm editorial hierarchy, premium spacing, glass surfaces, and subtle motion.
+- Focus hero surfaces the next best action without overwhelming analytics.
+- Minimal accuracy, review, and full-length overview.
+- Refined priority queue, full-length library, and recent activity strip.
+
+ADD / EDIT QUESTION
+- Rebuilt as a live exam-style authoring studio.
+- Passage on the left and question/answers on the right while you create it.
+- One continuous passage canvas instead of visible text/image blocks.
+- Type or paste passage text naturally.
+- Insert multiple images with one button.
+- Paste screenshots directly into the passage with Command+V.
+- Drag and drop images into the passage.
+- Continue typing immediately below each figure.
+- Add optional figure captions and move/remove figures on hover.
+- Reuse a saved passage across several questions without manually managing IDs.
+- Review explanation and Anki notes remain structured below the exam editor.
+
+PRESERVED
+- Supabase cloud storage and private login.
+- Existing questions, images, passages, full-length exams, and attempts.
+- Highlight, strikethrough, remove formatting, timers, navigator, and scoring.
+- Backup export/import.
+
+The service-worker cache was advanced to v7 so the new design replaces older cached versions more reliably.

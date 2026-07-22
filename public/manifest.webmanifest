@@ -1,11 +1,11 @@
 {
   "name": "MCAT Question Log",
   "short_name": "MCAT Log",
-  "description": "A private cloud-synced MCAT question log and exam review app.",
+  "description": "A private cloud-synced MCAT question log and full-length exam workspace.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#eef4f8",
-  "theme_color": "#06496f",
+  "background_color": "#f5f5f7",
+  "theme_color": "#1d1d1f",
   "icons": [
     {
       "src": "/icon.svg",
