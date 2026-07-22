@@ -1,0 +1,25 @@
+MCAT Question Log v6 — Executive Dashboard
+
+New dashboard experience
+- Fully redesigned premium dashboard and app shell
+- Personalized time-based greeting using the signed-in account
+- Dark executive navigation with refined active states and cloud-sync status
+- Quiet four-metric overview rail instead of a crowded analytics grid
+- High-impact Next Best Action command card with live review-load meter
+- Focus Plan with three direct, functional study actions
+- Refined priority review table with subject and status tags
+- Full-Length simulation workspace with current status and latest score
+- Compact latest-activity strip
+- Responsive layouts for desktop, tablet, and smaller screens
+- Subtle motion, depth, gradients, and micro-interactions without visual clutter
+
+Preserved exactly
+- Supabase cloud storage and authentication
+- Existing questions, passages, images, exams, and attempts
+- Question-bank and add/edit workflows
+- Full-length builder, timer, autosave, navigator, scoring, and results
+- Review/testing interface and its independent scrolling layout
+- Highlight, strikethrough, remove-formatting, clear annotations, and answer-choice strikeout
+- Import/export backup compatibility
+
+No Supabase SQL changes or environment-variable changes are required.

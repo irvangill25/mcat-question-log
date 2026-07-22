@@ -531,6 +531,7 @@ function App() {
           <Dashboard
             questions={questions}
             exams={exams}
+            user={user}
             onAdd={startAdd}
             onOpenLog={() => navigate(PAGE.LOG)}
             onOpenExams={() => navigate(PAGE.EXAMS)}
@@ -627,168 +628,241 @@ function NavButton({ active, disabled, children, onClick, icon = 'dashboard' }) 
   );
 }
 
-function Dashboard({ questions, exams, onAdd, onOpenLog, onOpenExams, onCreateExam, onReview }) {
+function Dashboard({ questions, exams, user, onAdd, onOpenLog, onOpenExams, onCreateExam, onReview }) {
   const reviewQueue = questions.filter(
     (question) => question.flagged || question.reviewStatus === 'needs review' || question.result === 'incorrect',
   );
   const allAttempts = exams.flatMap((exam) => exam.attempts || []);
   const completedAttempts = allAttempts.filter((attempt) => attempt.status === 'completed');
   const activeExams = exams.filter((exam) => exam.activeAttempt?.status === 'in-progress');
+  const scoredQuestions = questions.filter((question) => question.result === 'correct' || question.result === 'incorrect');
+  const correctQuestions = scoredQuestions.filter((question) => question.result === 'correct').length;
+  const accuracy = scoredQuestions.length ? Math.round((correctQuestions / scoredQuestions.length) * 100) : 0;
+  const reviewedCount = questions.filter((question) => question.reviewStatus !== 'needs review').length;
+  const flaggedCount = questions.filter((question) => question.flagged).length;
+  const reviewLoad = questions.length ? Math.min(100, Math.round((reviewQueue.length / questions.length) * 100)) : 0;
+
   const priorityReview = [...reviewQueue]
-    .sort((a, b) => Number(Boolean(b.flagged)) - Number(Boolean(a.flagged)) || new Date(b.updatedAt) - new Date(a.updatedAt))
-    .slice(0, 3);
-  const recent = [...questions]
-    .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
+    .sort((a, b) => Number(Boolean(b.flagged)) - Number(Boolean(a.flagged)) || new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0))
     .slice(0, 4);
+  const recent = [...questions]
+    .sort((a, b) => new Date(b.updatedAt || b.dateCompleted || 0) - new Date(a.updatedAt || a.dateCompleted || 0))
+    .slice(0, 3);
   const nextQuestion = priorityReview[0] || questions[0] || null;
   const nextExam = activeExams[0] || exams[0] || null;
 
-  const formatActivityDate = (value) => {
+  const rawName = user?.email?.split('@')[0] || 'Student';
+  const displayName = rawName
+    .split(/[._-]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
+
+  const timeAgo = (value) => {
     if (!value) return 'Recently';
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return 'Recently';
+    const seconds = Math.max(0, Math.floor((Date.now() - date.getTime()) / 1000));
+    if (seconds < 60) return 'Just now';
+    if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+    if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+    if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ago`;
     return new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(date);
   };
 
+  const getSubjectCode = (subject = '') => {
+    const normalized = subject.toLowerCase();
+    if (normalized.includes('bio')) return 'BB';
+    if (normalized.includes('chem') || normalized.includes('physics')) return 'CP';
+    if (normalized.includes('psych') || normalized.includes('soc')) return 'PS';
+    if (normalized.includes('cars')) return 'CR';
+    return (subject || 'Q').slice(0, 2).toUpperCase();
+  };
+
+  const getSubjectTone = (subject = '') => {
+    const normalized = subject.toLowerCase();
+    if (normalized.includes('bio')) return 'emerald';
+    if (normalized.includes('psych') || normalized.includes('soc')) return 'amber';
+    if (normalized.includes('cars')) return 'violet';
+    return 'blue';
+  };
+
+  const latestAttemptFor = (exam) => [...(exam.attempts || [])]
+    .sort((a, b) => new Date(b.completedAt || b.startedAt || 0) - new Date(a.completedAt || a.startedAt || 0))[0];
+
   return (
-    <section className="minimal-dashboard">
-      <header className="minimal-dashboard-header">
+    <section className="executive-dashboard">
+      <header className="executive-heading">
         <div>
-          <h1>Dashboard</h1>
-          <p>Your focused workspace for questions, review, and full-length practice.</p>
+          <p className="executive-kicker"><span></span> PRIVATE STUDY WORKSPACE</p>
+          <h1>{greeting}, {displayName}.</h1>
+          <p>One calm place to capture mistakes, sharpen weak areas, and run full-length practice.</p>
         </div>
-        <div className="minimal-dashboard-actions">
-          <button className="primary-button" onClick={() => nextQuestion ? onReview(nextQuestion) : onAdd()}>
-            <span aria-hidden="true">▷</span> Start review
-          </button>
-          <button className="secondary-button" onClick={exams.length ? onOpenExams : onCreateExam}>
-            + New full-length
+        <div className="executive-heading-actions">
+          <button className="executive-ghost-button" onClick={onAdd}><span>＋</span> Add question</button>
+          <button className="executive-primary-button" onClick={() => nextQuestion ? onReview(nextQuestion) : onAdd()}>
+            <span className="executive-play">▶</span>{nextQuestion ? 'Begin review' : 'Start building'}
           </button>
         </div>
       </header>
 
-      <div className="minimal-stat-grid">
-        <DashboardMetric label="Total questions" value={questions.length} detail={`${questions.filter((question) => question.reviewStatus !== 'needs review').length} reviewed`} icon="bank" />
-        <DashboardMetric label="Review queue" value={reviewQueue.length} detail={`${questions.filter((question) => question.flagged).length} flagged`} icon="review" tone="amber" />
-        <DashboardMetric label="Active exams" value={activeExams.length} detail={`${completedAttempts.length} completed attempts`} icon="exam" tone="violet" />
+      <div className="executive-metric-rail" aria-label="Study overview">
+        <ExecutiveMetric label="Question bank" value={questions.length} detail={`${reviewedCount} reviewed`} />
+        <ExecutiveMetric label="Recorded accuracy" value={scoredQuestions.length ? `${accuracy}%` : '—'} detail={`${scoredQuestions.length} scored`} />
+        <ExecutiveMetric label="Needs attention" value={reviewQueue.length} detail={`${flaggedCount} flagged`} emphasis={reviewQueue.length > 0} />
+        <ExecutiveMetric label="Full-lengths" value={exams.length} detail={`${completedAttempts.length} completed`} />
       </div>
 
-      <div className="minimal-focus-grid">
-        <section className="panel continue-study-card">
-          <div className="continue-study-copy">
-            <p className="minimal-section-label">CONTINUE STUDYING</p>
-            <h2>Pick up where you left off.</h2>
-            <p>{nextQuestion ? 'Your highest-priority question is ready to review.' : 'Add your first question to begin building your review workflow.'}</p>
-          </div>
-          <div className="continue-study-resume">
-            <div className="resume-card-icon"><SidebarIcon name="review" /></div>
-            <div>
-              <small>{nextQuestion ? 'Resume' : 'Get started'}</small>
-              <strong>{nextQuestion ? (nextQuestion.topic || `Question ${nextQuestion.questionNumber || ''}`) : 'Create your question bank'}</strong>
-              <span>{nextQuestion ? `${reviewQueue.length} question${reviewQueue.length === 1 ? '' : 's'} in your review queue` : 'Save passages, images, answers, and explanations'}</span>
+      <div className="executive-hero-grid">
+        <section className="executive-command-card">
+          <div className="executive-command-glow" aria-hidden="true"></div>
+          <div className="executive-command-grid" aria-hidden="true"></div>
+          <div className="executive-command-copy">
+            <div className="executive-command-label"><span></span> NEXT BEST ACTION</div>
+            <h2>{nextQuestion ? (nextQuestion.topic || `Review question ${nextQuestion.questionNumber || ''}`) : 'Build your personal question bank'}</h2>
+            <p>
+              {nextQuestion
+                ? `${nextQuestion.subject || 'Uncategorized'} · ${nextQuestion.flagged ? 'Flagged for priority review' : 'Ready for focused review'}`
+                : 'Save passages, figures, answer choices, explanations, and the reasoning behind every miss.'}
+            </p>
+            <div className="executive-command-actions">
+              <button className="executive-light-button" onClick={() => nextQuestion ? onReview(nextQuestion) : onAdd()}>
+                {nextQuestion ? 'Open focused review' : 'Add your first question'} <span>→</span>
+              </button>
+              <button className="executive-link-button" onClick={onOpenLog}>View question bank</button>
             </div>
           </div>
-          <div className="continue-study-actions">
-            <button className="primary-button" onClick={() => nextQuestion ? onReview(nextQuestion) : onAdd()}>
-              <span aria-hidden="true">▷</span> {nextQuestion ? 'Start review' : 'Add a question'}
-            </button>
-            <button className="secondary-button" onClick={onOpenLog}>Go to question bank</button>
+          <div className="executive-command-meter">
+            <div className="executive-ring" style={{ '--progress': `${reviewLoad * 3.6}deg` }}>
+              <div><strong>{reviewQueue.length}</strong><span>to review</span></div>
+            </div>
+            <small>{reviewQueue.length ? `${Math.max(0, questions.length - reviewQueue.length)} questions are currently clear` : 'Your review queue is clear'}</small>
+          </div>
+          <div className="executive-command-footer">
+            <span><i></i> Cloud saved</span>
+            <span>{nextQuestion?.questionNumber ? `Question ${nextQuestion.questionNumber}` : `${questions.length} saved records`}</span>
           </div>
         </section>
 
-        <section className="panel today-focus-card">
-          <div className="minimal-card-heading">
-            <div className="minimal-heading-icon"><SidebarIcon name="calendar" /></div>
-            <div><h2>Today’s focus</h2><p>Three clear next steps.</p></div>
+        <section className="executive-today-card">
+          <div className="executive-panel-title">
+            <div><p>FOCUS PLAN</p><h2>Today</h2></div>
+            <span className="executive-date-chip">{new Intl.DateTimeFormat(undefined, { weekday: 'short', month: 'short', day: 'numeric' }).format(new Date())}</span>
           </div>
-          <div className="today-focus-list">
+          <div className="executive-focus-list">
             <button onClick={() => nextQuestion ? onReview(nextQuestion) : onAdd()}>
-              <span className={`focus-status ${reviewQueue.length === 0 ? 'complete' : ''}`}>{reviewQueue.length === 0 ? '✓' : ''}</span>
-              <span><strong>Review priority questions</strong><small>{reviewQueue.length === 0 ? 'Queue cleared' : `${reviewQueue.length} remaining`}</small></span>
-              <b>›</b>
+              <span className={`executive-check ${reviewQueue.length === 0 ? 'done' : ''}`}>{reviewQueue.length === 0 ? '✓' : '1'}</span>
+              <span><strong>{reviewQueue.length ? 'Clear priority review' : 'Keep the queue clear'}</strong><small>{reviewQueue.length ? `${reviewQueue.length} question${reviewQueue.length === 1 ? '' : 's'} waiting` : 'Everything is reviewed'}</small></span>
+              <b>→</b>
             </button>
             <button onClick={nextExam ? onOpenExams : onCreateExam}>
-              <span className={`focus-status ${completedAttempts.length > 0 ? 'complete' : ''}`}>{completedAttempts.length > 0 ? '✓' : ''}</span>
-              <span><strong>{activeExams.length ? 'Continue your full-length' : 'Plan a full-length exam'}</strong><small>{activeExams.length ? `${activeExams.length} in progress` : `${exams.length} saved`}</small></span>
-              <b>›</b>
+              <span className={`executive-check ${activeExams.length ? 'active' : ''}`}>2</span>
+              <span><strong>{activeExams.length ? 'Resume full-length' : 'Prepare a full-length'}</strong><small>{activeExams.length ? `${activeExams.length} exam${activeExams.length === 1 ? '' : 's'} in progress` : `${exams.length} exam${exams.length === 1 ? '' : 's'} created`}</small></span>
+              <b>→</b>
             </button>
             <button onClick={onAdd}>
-              <span className="focus-status"></span>
-              <span><strong>Log the next missed question</strong><small>Keep your review reasoning fresh</small></span>
-              <b>›</b>
+              <span className="executive-check">3</span>
+              <span><strong>Capture the next miss</strong><small>Log it while the reasoning is fresh</small></span>
+              <b>→</b>
             </button>
+          </div>
+          <div className="executive-today-footer">
+            <span className="executive-mini-orbit"><i></i></span>
+            <p><strong>Focused, not crowded.</strong><small>Your workspace surfaces only what needs action.</small></p>
           </div>
         </section>
       </div>
 
-      <div className="minimal-lower-grid">
-        <section className="panel minimal-list-card">
-          <div className="minimal-list-heading">
-            <div><h2>Review queue</h2><span className="minimal-count-badge">{reviewQueue.length}</span></div>
-            <button className="text-button" onClick={onOpenLog}>View all</button>
+      <div className="executive-content-grid">
+        <section className="executive-panel executive-review-panel">
+          <div className="executive-panel-title">
+            <div><p>PRIORITY QUEUE</p><h2>Needs attention</h2></div>
+            <button onClick={onOpenLog}>View all <span>↗</span></button>
           </div>
           {priorityReview.length ? (
-            <div className="minimal-review-list">
-              {priorityReview.map((question) => (
+            <div className="executive-review-table">
+              {priorityReview.map((question, index) => (
                 <button key={question.id} onClick={() => onReview(question)}>
-                  <span className={`subject-chip ${String(question.subject || '').toLowerCase().includes('bio') ? 'green' : String(question.subject || '').toLowerCase().includes('psych') ? 'orange' : ''}`}>{(question.subject || 'Q').slice(0, 2).toUpperCase()}</span>
-                  <span><strong>{question.topic || `Question ${question.questionNumber || ''}`}</strong><small>{question.subject || 'Uncategorized'}</small></span>
-                  <span className="minimal-list-meta">{question.flagged ? 'Flagged' : question.reviewStatus}</span>
+                  <span className="executive-row-number">{String(index + 1).padStart(2, '0')}</span>
+                  <span className={`executive-subject-tag ${getSubjectTone(question.subject)}`}>{getSubjectCode(question.subject)}</span>
+                  <span className="executive-row-copy">
+                    <strong>{question.topic || `Question ${question.questionNumber || ''}`}</strong>
+                    <small>{question.subject || 'Uncategorized'}{question.questionNumber ? ` · Q${question.questionNumber}` : ''}</small>
+                  </span>
+                  <span className={`executive-status-pill ${question.flagged ? 'flagged' : question.result || ''}`}>
+                    {question.flagged ? 'Flagged' : question.result === 'incorrect' ? 'Incorrect' : question.reviewStatus === 'needs review' ? 'Review' : question.result || 'Open'}
+                  </span>
+                  <span className="executive-row-arrow">→</span>
                 </button>
               ))}
             </div>
           ) : (
-            <div className="minimal-empty-state"><span>✓</span><strong>You’re caught up</strong><small>No questions currently need review.</small></div>
+            <div className="executive-empty-state">
+              <span>✓</span><div><strong>Nothing needs attention.</strong><small>Your review queue is completely clear.</small></div>
+            </div>
           )}
-          <button className="minimal-card-footer" onClick={onOpenLog}>Go to review queue <span>→</span></button>
+          <button className="executive-panel-footer" onClick={onOpenLog}>Open complete question bank <span>→</span></button>
         </section>
 
-        <section className="panel minimal-list-card">
-          <div className="minimal-list-heading">
-            <div><h2>Full-length exams</h2></div>
-            <button className="text-button" onClick={onOpenExams}>View all</button>
+        <section className="executive-panel executive-exam-panel">
+          <div className="executive-panel-title">
+            <div><p>SIMULATION LAB</p><h2>Full-lengths</h2></div>
+            <button onClick={onOpenExams}>View all <span>↗</span></button>
           </div>
           {exams.length ? (
-            <div className="minimal-exam-list">
+            <div className="executive-exam-stack">
               {exams.slice(0, 3).map((exam, index) => {
-                const latestAttempt = [...(exam.attempts || [])].sort((a, b) => new Date(b.completedAt || b.startedAt) - new Date(a.completedAt || a.startedAt))[0];
+                const latestAttempt = latestAttemptFor(exam);
                 const assigned = (exam.sections || []).reduce((sum, section) => sum + (section.questionIds || []).length, 0);
+                const inProgress = exam.activeAttempt?.status === 'in-progress';
                 return (
-                  <button key={exam.id} onClick={onOpenExams}>
-                    <span className="exam-index"><small>FL</small>{index + 1}</span>
-                    <span><strong>{exam.title || `Full-Length ${index + 1}`}</strong><small>{exam.activeAttempt?.status === 'in-progress' ? 'In progress' : `${assigned} assigned questions`}</small></span>
-                    <span className="exam-score">{exam.activeAttempt?.status === 'in-progress' ? 'Resume' : latestAttempt?.score?.percent != null ? `${latestAttempt.score.percent}%` : 'Start'}</span>
+                  <button key={exam.id} onClick={onOpenExams} className={inProgress ? 'active' : ''}>
+                    <span className="executive-exam-mark"><small>FL</small>{index + 1}</span>
+                    <span className="executive-exam-copy"><strong>{exam.title || `Full-Length ${index + 1}`}</strong><small>{inProgress ? 'Session in progress' : `${assigned} assigned questions`}</small></span>
+                    <span className="executive-exam-result">
+                      <strong>{inProgress ? 'Resume' : latestAttempt?.score?.percent != null ? `${latestAttempt.score.percent}%` : 'Ready'}</strong>
+                      <small>{inProgress ? 'Continue' : latestAttempt?.status === 'completed' ? 'Latest score' : 'Not started'}</small>
+                    </span>
                   </button>
                 );
               })}
             </div>
           ) : (
-            <div className="minimal-empty-state"><span>FL</span><strong>No exams yet</strong><small>Create a timed or untimed full-length from your saved questions.</small></div>
-          )}
-          <button className="minimal-card-footer" onClick={exams.length ? onOpenExams : onCreateExam}>{exams.length ? 'Go to full-length exams' : 'Create your first full-length'} <span>→</span></button>
-        </section>
-
-        <section className="panel minimal-list-card">
-          <div className="minimal-list-heading">
-            <div><h2>Recent activity</h2></div>
-            <button className="text-button" onClick={onOpenLog}>View all</button>
-          </div>
-          {recent.length ? (
-            <div className="minimal-activity-list">
-              {recent.map((question) => (
-                <button key={question.id} onClick={() => onReview(question)}>
-                  <span className={`activity-dot ${question.result}`}></span>
-                  <span><strong>{question.topic || `Question ${question.questionNumber || ''}`}</strong><small>{question.subject || 'Uncategorized'} • {question.result}</small></span>
-                  <time>{formatActivityDate(question.updatedAt || question.dateCompleted)}</time>
-                </button>
-              ))}
+            <div className="executive-empty-state executive-exam-empty">
+              <span>FL</span><div><strong>Create your first simulation.</strong><small>Build a timed or untimed exam from saved questions.</small></div>
             </div>
-          ) : (
-            <div className="minimal-empty-state"><span>·</span><strong>No recent activity</strong><small>Your latest saved and reviewed questions will appear here.</small></div>
           )}
+          <button className="executive-panel-footer" onClick={exams.length ? onOpenExams : onCreateExam}>
+            {exams.length ? 'Manage full-length exams' : 'Create a full-length'} <span>→</span>
+          </button>
         </section>
       </div>
+
+      <section className="executive-activity-strip">
+        <div className="executive-activity-heading"><span className="executive-pulse"></span><div><strong>Latest activity</strong><small>Your most recent question updates</small></div></div>
+        <div className="executive-activity-items">
+          {recent.length ? recent.map((question) => (
+            <button key={question.id} onClick={() => onReview(question)}>
+              <span className={`executive-activity-dot ${question.result || ''}`}></span>
+              <span><strong>{question.topic || `Question ${question.questionNumber || ''}`}</strong><small>{timeAgo(question.updatedAt || question.dateCompleted)}</small></span>
+            </button>
+          )) : <span className="executive-no-activity">Your latest study activity will appear here.</span>}
+        </div>
+        <button className="executive-activity-link" onClick={onOpenLog}>Open log →</button>
+      </section>
     </section>
+  );
+}
+
+function ExecutiveMetric({ label, value, detail, emphasis = false }) {
+  return (
+    <article className={`executive-metric ${emphasis ? 'emphasis' : ''}`}>
+      <span>{label}</span>
+      <strong>{value}</strong>
+      <small>{detail}</small>
+    </article>
   );
 }
 

@@ -1,14 +1,16 @@
-MCAT QUESTION LOG v5 UPDATE
+MCAT QUESTION LOG v6 — EXECUTIVE DASHBOARD UPDATE
 
-1. Unzip this folder.
-2. Open your existing GitHub repository for the MCAT Question Log.
+1. Unzip this download.
+2. Open your existing GitHub repository: mcat-question-log.
 3. Choose Add file -> Upload files.
-4. Drag every item INSIDE this folder into GitHub, including the public folder.
-5. Confirm replacement of existing files and commit the changes.
+4. Drag every item INSIDE the unzipped folder into GitHub, including the public folder.
+5. Confirm replacement of the existing files and commit the changes.
 6. Wait for Vercel to deploy automatically.
-7. Open the site and press Command + Shift + R once.
+7. Open your app and press Command + Shift + R once.
 
 Do not upload the ZIP itself.
 Do not rerun the Supabase SQL file.
-Do not change the Vercel environment variables.
-Your existing cloud questions, images, exams, and attempts remain intact.
+Do not change your Vercel environment variables.
+Your existing cloud questions, passages, images, exams, and attempts remain intact.
+
+This update changes the dashboard and signed-in workspace shell only. The testing interface remains unchanged.
